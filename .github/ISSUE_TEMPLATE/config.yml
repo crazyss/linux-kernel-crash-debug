@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/crazyss/linux-kernel-crash-debug#readme
+    about: Check the documentation before opening an issue
+  - name: 💬 Discussions
+    url: https://github.com/crazyss/linux-kernel-crash-debug/discussions
+    about: Ask questions and discuss with the community
