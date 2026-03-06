@@ -1,50 +1,50 @@
 # Linux Kernel Crash Debug Skill
 
-A Claude Code skill for debugging Linux kernel crashes using the crash utility.
+[中文文档](README_CN.md)
 
-## Installation
-
-Download the `.skill` file and install it in Claude Code:
-
-```bash
-claude skill install linux-kernel-crash-debug.skill
-```
+Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that helps you debug Linux kernel crashes using the crash utility.
 
 ## Features
 
-### Core Capabilities
 - **Quick Start Guide**: Essential commands and debugging workflow
-- **Command Reference**: Complete crash utility command cheat sheet
-- **Context Management**: Understanding and switching crash session contexts
+- **Complete Command Reference**: All crash utility commands with examples
+- **Advanced Techniques**: Memory analysis, linked list traversal, address translation
+- **Real-world Cases**: Kernel BUG, deadlock, OOM, NULL pointer, stack overflow
+- **vmcore Knowledge**: ELF format, VMCOREINFO, dump file types
 
-### Advanced Commands
-- **list**: Kernel linked list traversal
-- **rd**: Memory reading with multiple formats
-- **search**: Memory pattern searching
-- **vtop**: Virtual to physical address translation
-- **kmem**: Memory subsystem analysis
-- **foreach**: Batch task operations
-- **bt**: Advanced backtrace options
-- **gdb passthrough**: Direct GDB command access
+## Installation
 
-### vmcore Knowledge
-- ELF format structure and parsing
-- VMCOREINFO contents and usage
-- Supported dump formats (kdump, diskdump, netdump, LKCD, raw RAM)
+```bash
+# Download the skill file
+git clone https://github.com/crazyss/linux-kernel-crash-debug.git
 
-### Debugging Scenarios
-- kernel BUG location
-- Deadlock analysis
-- Memory exhaustion (OOM)
-- NULL pointer dereference
-- Stack overflow detection
+# Install in Claude Code
+claude skill install linux-kernel-crash-debug.skill
+```
+
+## Quick Start
+
+```bash
+# Start crash session
+crash vmlinux vmcore
+
+# Basic debugging flow
+crash> sys              # Check panic reason
+crash> log              # View kernel log
+crash> bt               # Backtrace
+crash> struct <type>    # Inspect data structures
+crash> kmem <addr>      # Memory analysis
+```
 
 ## Structure
 
 ```
 linux-kernel-crash-debug/
-├── SKILL.md                    # Main skill file (quick reference)
-├── README.md                   # This file
+├── SKILL.md                    # Main skill file
+├── README.md                   # English documentation
+├── README_CN.md                # Chinese documentation
+├── CONTRIBUTING.md             # Contribution guide
+├── LICENSE                     # MIT License
 ├── linux-kernel-crash-debug.skill  # Packaged skill
 └── references/                 # Detailed documentation
     ├── advanced-commands.md    # In-depth command usage
@@ -59,21 +59,13 @@ This skill triggers when you mention:
 - vmcore analysis
 - crash utility
 - kernel oops debugging
-- kernel debugging
 
-### Quick Start
+## Contributing
 
-```
-# Start crash session
-crash vmlinux vmcore
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-# Basic debugging flow
-crash> sys              # Check panic reason
-crash> log              # View kernel log
-crash> bt               # Backtrace
-crash> struct <type>    # Inspect data structures
-crash> kmem <addr>      # Memory analysis
-```
+- Report bugs or request features via [Issues](https://github.com/crazyss/linux-kernel-crash-debug/issues)
+- Submit improvements via Pull Requests
 
 ## Resources
 
@@ -83,4 +75,8 @@ crash> kmem <addr>      # Memory analysis
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Made with passion for kernel debugging
