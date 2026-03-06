@@ -1,11 +1,28 @@
 ---
 name: linux-kernel-crash-debug
-description: 使用 crash 工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试时，使用此 skill。也适用于用户询问如何分析内核崩溃转储文件、如何使用 crash 命令、如何定位内核问题根因等场景。
+description: 使用 crash 工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因时，使用此 skill。
 ---
 
 # Linux Kernel Crash Debugging
 
 本 skill 指导如何使用 crash 工具分析 Linux 内核崩溃转储。
+
+## 安装
+
+### Claude Code
+```bash
+claude skill install linux-kernel-crash-debug.skill
+```
+
+### OpenClaw
+```bash
+# 方式一：通过 ClawHub 安装
+clawhub install linux-kernel-crash-debug
+
+# 方式二：手动安装
+mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
+cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
+```
 
 ## 快速开始
 
