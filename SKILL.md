@@ -1,13 +1,13 @@
 ---
 name: linux-kernel-crash-debug
-description: 使用 crash 工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因时，使用此 skill。
+description: Debug Linux kernel crashes using the crash utility. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, or locating root causes of kernel issues.
 ---
 
 # Linux Kernel Crash Debugging
 
-本 skill 指导如何使用 crash 工具分析 Linux 内核崩溃转储。
+This skill guides you through analyzing Linux kernel crash dumps using the crash utility.
 
-## 安装
+## Installation
 
 ### Claude Code
 ```bash
@@ -16,233 +16,233 @@ claude skill install linux-kernel-crash-debug.skill
 
 ### OpenClaw
 ```bash
-# 方式一：通过 ClawHub 安装
+# Method 1: Install via ClawHub
 clawhub install linux-kernel-crash-debug
 
-# 方式二：手动安装
+# Method 2: Manual installation
 mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
 cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
 ```
 
-## 快速开始
+## Quick Start
 
-### 启动会话
+### Starting a Session
 
 ```bash
-# 分析转储文件
+# Analyze a dump file
 crash vmlinux vmcore
 
-# 调试运行中的系统
+# Debug a running system
 crash vmlinux
 
-# 原始 RAM 转储
+# Raw RAM dump
 crash vmlinux ddr.bin --ram_start=0x80000000
 ```
 
-### 核心调试流程
+### Core Debugging Workflow
 
 ```
-1. crash> sys              # 确认 panic 原因
-2. crash> log              # 查看内核日志
-3. crash> bt               # 分析调用栈
-4. crash> struct <type>    # 检查数据结构
-5. crash> kmem <addr>      # 内存分析
+1. crash> sys              # Confirm panic reason
+2. crash> log              # View kernel log
+3. crash> bt               # Analyze call stack
+4. crash> struct <type>    # Inspect data structures
+5. crash> kmem <addr>      # Memory analysis
 ```
 
-## 前置要求
+## Prerequisites
 
-| 项目 | 要求 |
-|------|------|
-| **vmlinux** | 必须带 debug symbols (`CONFIG_DEBUG_INFO=y`) |
-| **vmcore** | kdump/netdump/diskdump/ELF 格式 |
-| **版本** | vmlinux 必须与 vmcore 内核版本完全匹配 |
+| Item | Requirement |
+|------|-------------|
+| **vmlinux** | Must have debug symbols (`CONFIG_DEBUG_INFO=y`) |
+| **vmcore** | kdump/netdump/diskdump/ELF format |
+| **Version** | vmlinux must exactly match the vmcore kernel version |
 
-获取 debuginfo：
+Obtaining debuginfo:
 ```bash
 # RHEL/CentOS
 yum install kernel-debuginfo
 
-# 自编译内核
-make menuconfig  # 启用 CONFIG_DEBUG_INFO
+# Self-compiled kernel
+make menuconfig  # Enable CONFIG_DEBUG_INFO
 ```
 
-## 核心命令速查
+## Core Command Reference
 
-### 调试分析
+### Debugging Analysis
 
-| 命令 | 用途 | 示例 |
-|------|------|------|
-| `sys` | 系统信息/panic 原因 | `sys`, `sys -i` |
-| `log` | 内核消息缓冲区 | `log`, `log \| tail` |
-| `bt` | 调用栈回溯 | `bt`, `bt -a`, `bt -f` |
-| `struct` | 结构体查看 | `struct task_struct <addr>` |
-| `p/px/pd` | 打印变量 | `p jiffies`, `px current` |
-| `kmem` | 内存分析 | `kmem -i`, `kmem -S <cache>` |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `sys` | System info/panic reason | `sys`, `sys -i` |
+| `log` | Kernel message buffer | `log`, `log \| tail` |
+| `bt` | Stack backtrace | `bt`, `bt -a`, `bt -f` |
+| `struct` | View structures | `struct task_struct <addr>` |
+| `p/px/pd` | Print variables | `p jiffies`, `px current` |
+| `kmem` | Memory analysis | `kmem -i`, `kmem -S <cache>` |
 
-### 任务和进程
+### Tasks and Processes
 
-| 命令 | 用途 | 示例 |
-|------|------|------|
-| `ps` | 进程列表 | `ps`, `ps -m \| grep UN` |
-| `set` | 切换上下文 | `set <pid>`, `set -p` |
-| `foreach` | 批量任务操作 | `foreach bt`, `foreach UN bt` |
-| `task` | task_struct 内容 | `task <pid>` |
-| `files` | 打开的文件 | `files <pid>` |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ps` | Process list | `ps`, `ps -m \| grep UN` |
+| `set` | Switch context | `set <pid>`, `set -p` |
+| `foreach` | Batch task operations | `foreach bt`, `foreach UN bt` |
+| `task` | task_struct contents | `task <pid>` |
+| `files` | Open files | `files <pid>` |
 
-### 内存操作
+### Memory Operations
 
-| 命令 | 用途 | 示例 |
-|------|------|------|
-| `rd` | 读取内存 | `rd <addr>`, `rd -p <phys>` |
-| `search` | 搜索内存 | `search -k deadbeef` |
-| `vtop` | 地址翻译 | `vtop <addr>` |
-| `list` | 遍历链表 | `list task_struct.tasks -h <addr>` |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `rd` | Read memory | `rd <addr>`, `rd -p <phys>` |
+| `search` | Search memory | `search -k deadbeef` |
+| `vtop` | Address translation | `vtop <addr>` |
+| `list` | Traverse linked lists | `list task_struct.tasks -h <addr>` |
 
-## bt 命令详解
+## bt Command Details
 
-最重要的调试命令：
-
-```
-crash> bt              # 当前任务调用栈
-crash> bt -a           # 所有 CPU 活动任务
-crash> bt -f           # 展开栈帧原始数据
-crash> bt -F           # 符号化栈帧数据
-crash> bt -l           # 显示源文件和行号
-crash> bt -e           # 搜索异常帧
-crash> bt -v           # 检查栈溢出
-crash> bt -R <sym>     # 仅显示引用该符号的栈
-crash> bt <pid>        # 指定进程
-```
-
-## 上下文管理
-
-Crash 会话有一个"当前上下文"，影响 `bt`, `files`, `vm` 等命令：
+The most important debugging command:
 
 ```
-crash> set              # 查看当前上下文
-crash> set <pid>        # 切换到指定 PID
-crash> set <task_addr>  # 切换到任务地址
-crash> set -p           # 恢复到 panic 任务
+crash> bt              # Current task stack
+crash> bt -a           # All CPU active tasks
+crash> bt -f           # Expand stack frame raw data
+crash> bt -F           # Symbolic stack frame data
+crash> bt -l           # Show source file and line number
+crash> bt -e           # Search for exception frames
+crash> bt -v           # Check stack overflow
+crash> bt -R <sym>     # Only show stacks referencing symbol
+crash> bt <pid>        # Specific process
 ```
 
-## 会话控制
+## Context Management
+
+Crash session has a "current context" affecting `bt`, `files`, `vm` commands:
 
 ```
-# 输出控制
-crash> set scroll off   # 禁用分页
-crash> sf               # scroll off 别名
+crash> set              # View current context
+crash> set <pid>        # Switch to specified PID
+crash> set <task_addr>  # Switch to task address
+crash> set -p           # Restore to panic task
+```
 
-# 输出重定向
+## Session Control
+
+```
+# Output control
+crash> set scroll off   # Disable pagination
+crash> sf               # Alias for scroll off
+
+# Output redirection
 crash> foreach bt > bt.all
 
-# GDB 直通
-crash> gdb bt           # 单次调用 gdb
-crash> set gdb on       # 进入 gdb 模式
+# GDB passthrough
+crash> gdb bt           # Single gdb invocation
+crash> set gdb on       # Enter gdb mode
 (gdb) info registers
 (gdb) set gdb off
 
-# 从文件读取命令
+# Read commands from file
 crash> < commands.txt
 ```
 
-## 典型调试场景
+## Typical Debugging Scenarios
 
-### kernel BUG 定位
-
-```
-crash> sys                    # 确认 panic
-crash> log | tail -50         # 查看日志
-crash> bt                     # 调用栈
-crash> bt -f                  # 展开栈帧获取参数
-crash> struct <type> <addr>   # 检查数据结构
-```
-
-### 死锁分析
+### Kernel BUG Location
 
 ```
-crash> bt -a                  # 所有 CPU 调用栈
-crash> ps -m | grep UN        # 不可中断睡眠进程
-crash> foreach UN bt          # 查看等待原因
-crash> struct mutex <addr>    # 检查锁状态
+crash> sys                    # Confirm panic
+crash> log | tail -50         # View logs
+crash> bt                     # Call stack
+crash> bt -f                  # Expand frames for parameters
+crash> struct <type> <addr>   # Inspect data structures
 ```
 
-### 内存问题
+### Deadlock Analysis
 
 ```
-crash> kmem -i                # 内存统计
-crash> kmem -S <cache>        # 检查 slab
-crash> vm <pid>               # 进程内存映射
-crash> search -k <pattern>    # 搜索内存
+crash> bt -a                  # All CPU call stacks
+crash> ps -m | grep UN        # Uninterruptible processes
+crash> foreach UN bt          # View waiting reasons
+crash> struct mutex <addr>    # Inspect lock state
 ```
 
-### 栈溢出
+### Memory Issues
 
 ```
-crash> bt -v                  # 检查栈溢出
-crash> bt -r                  # 原始栈数据
+crash> kmem -i                # Memory statistics
+crash> kmem -S <cache>        # Inspect slab
+crash> vm <pid>               # Process memory mapping
+crash> search -k <pattern>    # Search memory
 ```
 
-## 高级技巧
-
-### 链式查询
+### Stack Overflow
 
 ```
-crash> bt -f                  # 获取指针
+crash> bt -v                  # Check stack overflow
+crash> bt -r                  # Raw stack data
+```
+
+## Advanced Techniques
+
+### Chained Queries
+
+```
+crash> bt -f                  # Get pointers
 crash> struct file.f_dentry <addr>
 crash> struct dentry.d_inode <addr>
 crash> struct inode.i_pipe <addr>
 ```
 
-### 批量检查 Slab
+### Batch Slab Inspection
 
 ```
 crash> kmem -S inode_cache | grep counter | grep -v "= 1"
 ```
 
-### 遍历内核链表
+### Kernel Linked List Traversal
 
 ```
 crash> list task_struct.tasks -s task_struct.pid -h <start>
 crash> list -h <addr> -s dentry.d_name.name
 ```
 
-## 扩展参考
+## Extended Reference
 
-详细信息请查阅以下参考文件：
+For detailed information, refer to the following reference files:
 
-| 文件 | 内容 |
-|------|------|
-| `references/advanced-commands.md` | 高级命令详解：list, rd, search, vtop, kmem, foreach |
-| `references/vmcore-format.md` | vmcore 文件格式、ELF 结构、VMCOREINFO |
-| `references/case-studies.md` | 详细调试案例：kernel BUG、死锁、OOM、NULL指针、栈溢出 |
+| File | Content |
+|------|---------|
+| `references/advanced-commands.md` | Advanced commands: list, rd, search, vtop, kmem, foreach |
+| `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
+| `references/case-studies.md` | Detailed debugging cases: kernel BUG, deadlock, OOM, NULL pointer, stack overflow |
 
-使用方式：
+Usage:
 ```
-crash> help <command>        # 内置帮助
-# 或在 Claude 中请求查看参考文件
+crash> help <command>        # Built-in help
+# Or ask Claude to view reference files
 ```
 
-## 常见错误
+## Common Errors
 
 ```
 crash: vmlinux and vmcore do not match!
-# → 确保 vmlinux 版本与 vmcore 完全匹配
+# -> Ensure vmlinux version exactly matches vmcore
 
 crash: cannot find booted kernel
-# → 明确指定 vmlinux 路径
+# -> Specify vmlinux path explicitly
 
 crash: cannot resolve symbol
-# → 检查 vmlinux 是否带 debug symbols
+# -> Check if vmlinux has debug symbols
 ```
 
-## 注意事项
+## Important Notes
 
-1. **版本匹配**: vmlinux 必须与 vmcore 内核版本完全匹配
-2. **调试信息**: 必须使用带 debug symbols 的 vmlinux
-3. **上下文意识**: `bt`, `files`, `vm` 等命令受当前上下文影响
-4. **活系统修改**: `wr` 命令会修改运行中的内核，极其危险
+1. **Version Match**: vmlinux must exactly match the vmcore kernel version
+2. **Debug Info**: Must use vmlinux with debug symbols
+3. **Context Awareness**: `bt`, `files`, `vm` commands are affected by current context
+4. **Live System Modification**: `wr` command modifies running kernel, extremely dangerous
 
-## 资源
+## Resources
 
 - [Crash Utility Whitepaper](https://crash-utility.github.io/crash_whitepaper.html)
 - [Crash Utility Documentation](https://crash-utility.github.io/)

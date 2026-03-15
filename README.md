@@ -40,7 +40,8 @@ crash> kmem <addr>      # Memory analysis
 
 ```
 linux-kernel-crash-debug/
-├── SKILL.md                    # Main skill file
+├── SKILL.md                    # Main skill file (English)
+├── SKILL_CN.md                 # Chinese version of skill
 ├── README.md                   # English documentation
 ├── README_CN.md                # Chinese documentation
 ├── CONTRIBUTING.md             # Contribution guide
