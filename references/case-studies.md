@@ -1,19 +1,19 @@
-# 调试案例集
+# Debugging Case Studies
 
-详细的内核崩溃调试案例分析。
+Detailed kernel crash debugging case analysis.
 
-## 案例 1: kernel BUG 定位
+## Case 1: Kernel BUG Location
 
-### 症状
+### Symptoms
 
 ```
 PANIC: "kernel BUG at pipe.c:120!"
 ```
 
-### 分析步骤
+### Analysis Steps
 
 ```
-# 1. 确认系统信息
+# 1. Confirm system information
 crash> sys
 KERNEL: vmlinux
 DUMPFILE: vmcore
@@ -29,7 +29,7 @@ MACHINE: x86_64  (2900 Mhz)
 MEMORY: 32 GB
 PANIC: "kernel BUG at pipe.c:120!"
 
-# 2. 查看内核日志
+# 2. View kernel log
 crash> log | tail -100
 [...]
 kernel BUG at fs/pipe.c:120!
@@ -38,7 +38,7 @@ CPU: 3 PID: 1234 Comm: worker Tainted: G           O      4.18.0-348.el8.x86_64
 RIP: 0010:pipe_read+0x120/0x300
 [...]
 
-# 3. 分析调用栈
+# 3. Analyze call stack
 crash> bt
 PID: 1234   TASK: ffff88012b98e040  CPU: 3   COMMAND: "worker"
 #0 [ffffc90000123e00] __die at ffffffff8105a2b0
@@ -48,15 +48,15 @@ PID: 1234   TASK: ffff88012b98e040  CPU: 3   COMMAND: "worker"
 #4 [ffffc90000123f80] do_readv at ffffffff81210000
 #5 [ffffc90000123fc0] sys_readv at ffffffff81210100
 
-# 4. 展开栈帧获取参数
+# 4. Expand stack frames to get parameters
 crash> bt -f
 #3 [ffffc90000123f00] pipe_read at ffffffff81234560
-    ffff88012b98e040:  ffff880123456000   # file 指针
+    ffff88012b98e040:  ffff880123456000   # file pointer
     ffff88012b98e080:  ffff880123457000   # buffer
     ffff88012b98e0c0:  0000000000001000   # count
     [...]
 
-# 5. 链式追踪数据结构
+# 5. Chain trace data structures
 crash> struct file.f_dentry ffff880123456000
   f_dentry = ffff880123458000
 
@@ -70,7 +70,7 @@ crash> struct pipe_inode_info ffff88012345a000
 struct pipe_inode_info {
   mutex = {
     owner = 0,
-    count = 2,        # 异常！应该 <= 1
+    count = 2,        # Anomaly! Should be <= 1
     wait_list = {...}
   },
   readers = 1,
@@ -78,34 +78,34 @@ struct pipe_inode_info {
   [...]
 }
 
-# 6. 批量检查所有 pipe inode
+# 6. Batch check all pipe inodes
 crash> kmem -S pipe_inode_cache | head
 CACHE    NAME                OBJSIZE  ALLOCATED  TOTAL  SLABS  SSIZE
 ffff88012a000000  pipe_inode_cache      184       45      60     3    4k
 
-# 查找计数异常的 mutex
+# Find mutexes with abnormal counts
 crash> foreach bt | grep -B10 "pipe_read"
 ```
 
-### 根因分析
+### Root Cause Analysis
 
-`pipe_inode_info.mutex.count = 2` 表示信号量计数异常，可能是：
-- 双重释放
-- 竞态条件
-- 使用后释放
+`pipe_inode_info.mutex.count = 2` indicates semaphore count anomaly, possibly:
+- Double free
+- Race condition
+- Use after free
 
 ---
 
-## 案例 2: 死锁分析
+## Case 2: Deadlock Analysis
 
-### 症状
+### Symptoms
 
-系统挂起，无响应，但心跳正常。
+System hangs, unresponsive, but heartbeat normal.
 
-### 分析步骤
+### Analysis Steps
 
 ```
-# 1. 查看所有 CPU 状态
+# 1. View all CPU states
 crash> bt -a
 CPU 0:
 #0 [ffff880000000000] schedule at ffffffff81a12345
@@ -119,12 +119,12 @@ CPU 1:
 #2 [ffff880000010180] __down at ffffffff81a15678
 PID: 101   TASK: ffff88012a001000  CPU: 1   COMMAND: "thread_B"
 
-# 2. 查看不可中断睡眠进程
+# 2. View uninterruptible processes
 crash> ps -m | grep UN
   100  UN   0.0   0  ffff88012a000000  thread_A
   101  UN   0.1   0  ffff88012a001000  thread_B
 
-# 3. 分析等待队列
+# 3. Analyze wait queues
 crash> foreach UN bt
 PID: 100   TASK: ffff88012a000000  CPU: 0   COMMAND: "thread_A"
 #0 schedule
@@ -138,10 +138,10 @@ PID: 101   TASK: ffff88012a001000  CPU: 1   COMMAND: "thread_B"
 #2 down
 #3 some_function_B
 
-# 4. 检查锁持有情况
+# 4. Check lock ownership
 crash> struct mutex ffff88012b000000
 struct mutex {
-  owner = 0xffff88012a000000,  # thread_A 持有
+  owner = 0xffff88012a000000,  # thread_A holds
   wait_lock = {...},
   count = 0,
   wait_list = {
@@ -150,7 +150,7 @@ struct mutex {
   }
 }
 
-# 5. 追踪 thread_A 等待什么
+# 5. Trace what thread_A is waiting for
 crash> bt -f 100
 #2 wait_for_completion
     completion = 0xffff88012b001000
@@ -160,33 +160,33 @@ struct completion {
   wait = {...}
 }
 
-# 6. 谁应该完成这个 completion？
+# 6. Who should complete this completion?
 crash> search -k ffff88012b001000
-ffff88012a002000: ffff88012b001000  # 在 thread_B 的栈中
+ffff88012a002000: ffff88012b001000  # In thread_B's stack
 ```
 
-### 根因分析
+### Root Cause Analysis
 
-- thread_A 持有 mutex，等待 completion
-- thread_B 等待同一个 mutex
-- thread_B 应该完成 completion，但被阻塞
+- thread_A holds mutex, waiting for completion
+- thread_B is waiting for the same mutex
+- thread_B should complete the completion but is blocked
 
-**死锁模式**: ABBA 死锁
+**Deadlock Pattern**: ABBA deadlock
 
 ---
 
-## 案例 3: 内存耗尽
+## Case 3: Memory Exhaustion (OOM)
 
-### 症状
+### Symptoms
 
 ```
 Out of memory: Kill process 1234 (java) score 500 or sacrifice child
 ```
 
-### 分析步骤
+### Analysis Steps
 
 ```
-# 1. 查看内存统计
+# 1. View memory statistics
 crash> kmem -i
                  PAGES        TOTAL      PERCENTAGE
 TOTAL MEM       8388608      32 GB         ----
@@ -196,7 +196,7 @@ SHARED           524288       2 GB         6%
 BUFFERS          262144       1 GB         3%
 CACHED          1572864       6 GB        18%
 
-# 2. 查看内存区域
+# 2. View memory zones
 crash> kmem -z
 ZONE  DMA:
   pages_free     = 4096
@@ -208,7 +208,7 @@ ZONE  NORMAL:
 ZONE  MOVABLE:
   pages_free     = 0
 
-# 3. 查看 slab 使用
+# 3. View slab usage
 crash> kmem -s | sort -k 4 -rn | head
 CACHE            NAME              OBJSIZE  ALLOCATED  TOTAL
 ffff88012a000000 kmalloc-8192       8192    524288    600000
@@ -216,14 +216,14 @@ ffff88012a001000 kmalloc-4096       4096    262144    300000
 ffff88012a002000 dentry              192    131072    150000
 ffff88012a003000 inode_cache         592     65536     80000
 
-# 4. 查看进程内存使用
+# 4. View process memory usage
 crash> ps -G | sort -k 5 -rn | head
 PID    PPID  CPU   TASK        ST  %MEM   VSZ      RSS   COMM
 1234   1     3   ffff88012a003000  IN  25.0  8GB    8GB   java
 5678   1     2   ffff88012a004000  IN  15.0  5GB    5GB   python
 9012   1     1   ffff88012a005000  IN  10.0  3GB    3GB   node
 
-# 5. 详细查看大进程
+# 5. Detailed view of large process
 crash> vm 1234
 PID: 1234   TASK: ffff88012a003000  CPU: 3   COMMAND: "java"
 MM               PGD          RSS    TOTAL_VM
@@ -234,35 +234,35 @@ ffff88012c000000 7f0000000000 7f0000800000 877b3b [heap]
 ffff88012c001000 7f0000800000 7f0001000000 877b3b [heap]
 ...
 
-# 6. 查看 OOM killer 记录
+# 6. View OOM killer records
 crash> log | grep -A 50 "Out of memory"
 ```
 
-### 根因分析
+### Root Cause Analysis
 
-- 内存使用率 98%
-- java 进程占用 25% 内存
-- NORMAL zone 几乎耗尽
-- 可能存在内存泄漏
+- Memory usage 98%
+- java process uses 25% memory
+- NORMAL zone nearly exhausted
+- Possible memory leak
 
 ---
 
-## 案例 4: NULL 指针解引用
+## Case 4: NULL Pointer Dereference
 
-### 症状
+### Symptoms
 
 ```
 BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
 ```
 
-### 分析步骤
+### Analysis Steps
 
 ```
-# 1. 查看 panic 信息
+# 1. View panic information
 crash> sys
 PANIC: "BUG: unable to handle kernel NULL pointer dereference at 0000000000000010"
 
-# 2. 查看调用栈
+# 2. View call stack
 crash> bt
 #0 __die at ffffffff8105a2b0
 #1 exc_page_fault at ffffffff8105b3c0
@@ -270,54 +270,54 @@ crash> bt
 #3 my_driver_ioctl at ffffffff81234560
 #4 sys_ioctl at ffffffff81210000
 
-# 3. 反汇编出问题函数
+# 3. Disassemble problematic function
 crash> dis my_driver_ioctl
 0xffffffff81234500 <my_driver_ioctl>:   push   rbp
 0xffffffff81234501 <my_driver_ioctl+1>: mov    rbp,rsp
 ...
-0xffffffff81234550 <my_driver_ioctl+80>: mov    rax,QWORD PTR [rdi+0x10]  # 崩溃点
+0xffffffff81234550 <my_driver_ioctl+80>: mov    rax,QWORD PTR [rdi+0x10]  # Crash point
 ...
 
-# 4. 展开栈帧看参数
+# 4. Expand stack frame to see parameters
 crash> bt -f
 #3 my_driver_ioctl at ffffffff81234550
     rdi = 0x0000000000000000   # NULL!
     rsi = 0x000000000000abcd
 
-# 5. 确认结构体偏移
+# 5. Confirm structure offset
 crash> struct -o my_device
 struct my_device {
     [0x0] void *priv;
     [0x8] int state;
-    [0x10] struct device *dev;   # +0x10 正是崩溃偏移
+    [0x10] struct device *dev;   # +0x10 is the crash offset
 }
 
-# 6. 追踪 NULL 从哪里来
+# 6. Trace where NULL came from
 crash> bt -l
 #3 my_driver_ioctl at /home/user/my_driver.c:123
 crash> list my_driver.devices -s my_driver.device -h my_driver_head
 ```
 
-### 根因分析
+### Root Cause Analysis
 
-- `my_driver_ioctl` 第一个参数 `rdi` 为 NULL
-- 尝试访问 `rdi + 0x10` 导致页错误
-- 需要在代码中添加 NULL 检查
+- First parameter `rdi` of `my_driver_ioctl` is NULL
+- Attempting to access `rdi + 0x10` causes page fault
+- Need to add NULL check in code
 
 ---
 
-## 案例 5: 栈溢出
+## Case 5: Stack Overflow
 
-### 症状
+### Symptoms
 
 ```
 kernel stack overflow (double-fault)
 ```
 
-### 分析步骤
+### Analysis Steps
 
 ```
-# 1. 检查栈溢出
+# 1. Check stack overflow
 crash> bt -v
 PID: 1234   COMMAND: "worker"   STACK OVERFLOW DETECTED
     stack pointer: ffffc90000123fc0
@@ -325,33 +325,33 @@ PID: 1234   COMMAND: "worker"   STACK OVERFLOW DETECTED
     stack limit:   ffffc90000124000
     overflow by:   16 bytes
 
-# 2. 查看调用栈深度
+# 2. View call stack depth
 crash> bt
 #0 recursive_function at ffffffff81234560
 #1 recursive_function at ffffffff81234580
 #2 recursive_function at ffffffff81234580
-...（重复数百次）
+...(repeated hundreds of times)
 #500 recursive_function at ffffffff81234580
 
-# 3. 查看栈使用
+# 3. View stack usage
 crash> bt -r | wc -l
-8192    # 8KB 栈已满
+8192    # 8KB stack is full
 
-# 4. 检查大结构体
+# 4. Check large structures
 crash> struct large_context
 struct large_context {
     char buffer[4096];
     int data[1024];
     ...
 }
-SIZE: 8200  # 结构体本身超过栈大小！
+SIZE: 8200  # Structure itself exceeds stack size!
 
-# 5. 检查其他任务栈状态
+# 5. Check other task stack status
 crash> foreach bt -v
 ```
 
-### 根因分析
+### Root Cause Analysis
 
-- 递归调用过深
-- 或在栈上分配大结构体
-- 需要改为动态分配或减少递归深度
+- Too deep recursion
+- Or allocating large structures on stack
+- Need to change to dynamic allocation or reduce recursion depth

@@ -1,170 +1,170 @@
 # Advanced Commands Reference
 
-详细的高级命令用法，按需加载。
+Detailed advanced command usage, loaded on demand.
 
-## list - 链表遍历
+## list - Linked List Traversal
 
-遍历内核链表，自动跟踪 next/prev 指针：
+Traverse kernel linked lists, automatically following next/prev pointers:
 
 ```
-# 基本语法
+# Basic syntax
 list <struct.member> <start_addr>
-list -h <start_addr>    # start 是包含嵌入 list_head 的数据结构
-list -H <start_addr>    # start 是独立的 LIST_HEAD() 地址
+list -h <start_addr>    # start is a data structure containing embedded list_head
+list -H <start_addr>    # start is a standalone LIST_HEAD() address
 
-# 常用选项
--o offset     # next 指针在结构体中的偏移
--s struct     # 格式化显示结构体内容
--S struct     # 直接从内存读取成员值
--r            # 反向遍历（使用 prev 指针）
--B            # 使用 Brent 算法检测循环链表
--e end        # 指定结束地址
+# Common options
+-o offset     # offset of next pointer within structure
+-s struct     # format and display structure contents
+-S struct     # read member values directly from memory
+-r            # reverse traversal (using prev pointer)
+-B            # use Brent's algorithm to detect circular lists
+-e end        # specify end address
 
-# 示例
-# 遍历任务层次
+# Examples
+# Traverse task hierarchy
 crash> list task_struct.p_pptr c169a000
 
-# 遍历文件系统类型
+# Traverse file system types
 crash> list file_system_type.next -s file_system_type.name,fs_flags c03adc90
 
-# 遍历运行队列
+# Traverse run queue
 crash> list task_struct.run_list -H runqueue_head
 
-# 遍历所有任务的 PID
+# Traverse all task PIDs
 crash> list task_struct.tasks -s task_struct.pid -h ffff88012b98e040
 
-# 遍历 dentry 子目录
+# Traverse dentry subdirectories
 crash> list -o dentry.d_child -s dentry.d_name.name -O dentry.d_subdirs -h <parent_dentry>
 
-# 检测循环链表
+# Detect circular lists
 crash> list -B -h <start_addr>
 ```
 
-## rd - 内存读取
+## rd - Memory Read
 
-读取并显示内存内容：
+Read and display memory contents:
 
 ```
-# 基本语法
+# Basic syntax
 rd [options] <address|symbol> [count]
 
-# 地址类型选项
--p      # 物理地址
--u      # 用户虚拟地址
--m      # Xen 主机机器地址
--f      # dumpfile 偏移
+# Address type options
+-p      # physical address
+-u      # user virtual address
+-m      # Xen host machine address
+-f      # dumpfile offset
 
-# 输出格式选项
--d      # 有符号十进制
--D      # 无符号十进制
--x      # 不显示 ASCII 翻译
--s      # 符号化显示
--S      # 显示 slab cache 名称
--N      # 网络字节序
--R      # 反向显示
--a      # ASCII 字符显示
+# Output format options
+-d      # signed decimal
+-D      # unsigned decimal
+-x      # suppress ASCII translation
+-s      # symbolic display
+-S      # show slab cache name
+-N      # network byte order
+-R      # reverse display
+-a      # ASCII character display
 
-# 数据大小选项
--8      # 8 位
--16     # 16 位
--32     # 32 位（默认）
--64     # 64 位
+# Data size options
+-8      # 8-bit
+-16     # 16-bit
+-32     # 32-bit (default)
+-64     # 64-bit
 
-# 范围选项
--e addr     # 显示到指定地址
--o offs     # 偏移起始地址
--r file     # 输出原始数据到文件
+# Range options
+-e addr     # display up to specified address
+-o offs     # offset from start address
+-r file     # output raw data to file
 
-# 示例
-crash> rd -a linux_banner       # ASCII 显示内核版本字符串
-crash> rd -s f6e31f70 28        # 符号化显示 28 个字
-crash> rd -S f6e31f70 28        # 显示 slab cache 名
-crash> rd -SS f6e31f70 28       # 双重 slab 显示
-crash> rd -d jiffies            # 十进制显示
-crash> rd -64 kernel_version    # 64 位显示
-crash> rd c009bf2c -e c009bf60  # 范围显示
-crash> rd -p 1000 10            # 从物理地址读取
-crash> rd -u 80b4000 20         # 从用户空间读取
+# Examples
+crash> rd -a linux_banner       # ASCII display of kernel version string
+crash> rd -s f6e31f70 28        # symbolic display of 28 words
+crash> rd -S f6e31f70 28        # show slab cache names
+crash> rd -SS f6e31f70 28       # double slab display
+crash> rd -d jiffies            # decimal display
+crash> rd -64 kernel_version    # 64-bit display
+crash> rd c009bf2c -e c009bf60  # range display
+crash> rd -p 1000 10            # read from physical address
+crash> rd -u 80b4000 20         # read from user space
 ```
 
-## search - 内存搜索
+## search - Memory Search
 
-在内存中搜索特定值：
+Search for specific values in memory:
 
 ```
-# 基本语法
+# Basic syntax
 search [options] <value>
 
-# 搜索范围选项
--s start    # 起始地址
--e end      # 结束地址
--l length   # 搜索长度
--k          # 内核虚拟地址空间
--K          # 内核空间（不含 vmalloc）
--V          # 内核空间（不含 unity-mapped）
--u          # 用户虚拟地址空间
--p          # 物理地址空间
--t          # 所有任务的内核栈
--T          # 活动任务的内核栈
+# Search scope options
+-s start    # start address
+-e end      # end address
+-l length   # search length
+-k          # kernel virtual address space
+-K          # kernel space (excluding vmalloc)
+-V          # kernel space (excluding unity-mapped)
+-u          # user virtual address space
+-p          # physical address space
+-t          # all task kernel stacks
+-T          # active task kernel stacks
 
-# 搜索类型选项
--c          # 搜索字符串
--w          # 搜索 32 位整数
--h          # 搜索 16 位短整数
+# Search type options
+-c          # search for string
+-w          # search for 32-bit integer
+-h          # search for 16-bit short
 
-# 其他选项
--m mask     # 忽略掩码位
--x count    # 显示找到值前后的内存内容
+# Other options
+-m mask     # ignore masked bits
+-x count    # display memory context around found values
 
-# 示例
-# 在用户空间搜索 0xdeadbeef
+# Examples
+# Search for 0xdeadbeef in user space
 crash> search -u deadbeef
 
-# 带掩码搜索
+# Search with mask
 crash> search -s _etext -m ffff0000 abcd
 
-# 搜索 4KB 页面
+# Search 4KB page
 crash> search -s c532c000 -l 4096 ffffffff
 
-# 搜索物理内存
+# Search physical memory
 crash> search -p babe0000 -m ffff
 
-# 搜索字符串
+# Search for strings
 crash> search -k -c "can't allocate memory"
 crash> search -k -c "Failure to"
 
-# 搜索所有任务栈
+# Search all task stacks
 crash> search -t ffff81002c0a3050
 
-# 显示上下文
+# Display context
 crash> search -x 5 -k deadbeef
 ```
 
-## vtop - 虚拟地址翻译
+## vtop - Virtual Address Translation
 
-将虚拟地址转换为物理地址，显示页表遍历过程：
+Convert virtual addresses to physical addresses, showing page table walk:
 
 ```
-# 基本语法
+# Basic syntax
 vtop [-c [pid|taskp]] [-u|-k] <address>
 
-# 选项
--u          # 用户虚拟地址
--k          # 内核虚拟地址
--c pid      # 使用指定进程的页表
--c taskp    # 使用指定任务地址的页表
+# Options
+-u          # user virtual address
+-k          # kernel virtual address
+-c pid      # use page table of specified process
+-c taskp    # use page table of specified task address
 
-# 示例
-# 翻译用户空间地址
+# Examples
+# Translate user space address
 crash> vtop 80b4000
 
-# 翻译内核空间地址
+# Translate kernel space address
 crash> vtop c806e000
 
-# 使用指定进程的页表
+# Use page table of specified process
 crash> vtop -c 1359 c806e000
 
-# 输出结构示例
+# Output structure example
 VIRTUAL   PHYSICAL
 7f09cd705000 2322db000
 PGD: 235d707f0 => 800000023489f067
@@ -172,73 +172,73 @@ PUD: 23489f138 => 234727067
 PMD: 234727358 => 35eba067
 PTE: 35eba828
 
-# 页面标志位解释
+# Page flag interpretation
 (PRESENT|RW|USER|ACCESSED|DIRTY)
 
-# 交换分区信息（如果页面已换出）
+# Swap information (if page is swapped out)
 SWAP: /dev/sda8  OFFSET: 22716
 ```
 
-### 页表层级
+### Page Table Hierarchy
 
-x86_64 四级页表：
-- **PGD** (Page Global Directory): 页全局目录
-- **PUD** (Page Upper Directory): 页上级目录
-- **PMD** (Page Middle Directory): 页中间目录
-- **PTE** (Page Table Entry): 页表项
+x86_64 four-level page table:
+- **PGD** (Page Global Directory): Page Global Directory
+- **PUD** (Page Upper Directory): Page Upper Directory
+- **PMD** (Page Middle Directory): Page Middle Directory
+- **PTE** (Page Table Entry): Page Table Entry
 
-## kmem - 内存子系统分析
+## kmem - Memory Subsystem Analysis
 
-深入分析内核内存状态：
+In-depth analysis of kernel memory state:
 
 ```
-# 内存使用概览
-crash> kmem -i              # 显示内存使用信息
+# Memory usage overview
+crash> kmem -i              # display memory usage information
 
-# 页面相关
-crash> kmem -p              # 显示所有 page 结构
-crash> kmem -p <addr>       # 显示特定地址的 page 信息
-crash> kmem -P <phys_addr>  # 物理地址参数
-crash> kmem -m <fields>     # 显示指定 page 字段
-crash> kmem -g              # 显示 page flags 枚举值
+# Page related
+crash> kmem -p              # display all page structures
+crash> kmem -p <addr>       # display page info for specific address
+crash> kmem -P <phys_addr>  # physical address parameter
+crash> kmem -m <fields>     # display specified page fields
+crash> kmem -g              # display page flags enum values
 
-# Slab 分配器
-crash> kmem -s              # 显示基本 kmalloc slab 数据
-crash> kmem -S              # 显示详细 slab 数据（包括所有对象）
-crash> kmem -S <cache>      # 显示指定 slab 缓存
-crash> kmem -r              # 显示 root slab 缓存累积数据
-crash> kmem -I <cache>      # 忽略指定的 slab 缓存
+# Slab allocator
+crash> kmem -s              # display basic kmalloc slab data
+crash> kmem -S              # display detailed slab data (including all objects)
+crash> kmem -S <cache>      # display specified slab cache
+crash> kmem -r              # display root slab cache accumulation data
+crash> kmem -I <cache>      # ignore specified slab cache
 
-# 内存区域
-crash> kmem -z              # 显示 per-zone 内存统计
-crash> kmem -n              # 显示内存节点/section/block
+# Memory zones
+crash> kmem -z              # display per-zone memory statistics
+crash> kmem -n              # display memory node/section/block
 
 # vmalloc
-crash> kmem -v              # 显示 vmalloc 分配的区域
+crash> kmem -v              # display vmalloc allocated regions
 
-# 空闲内存
-crash> kmem -f              # 显示空闲内存头
-crash> kmem -F              # 同 -f，并显示链接的页面
+# Free memory
+crash> kmem -f              # display free memory headers
+crash> kmem -F              # same as -f, with linked pages
 
-# 其他
-crash> kmem -c              # 验证 page_hash_table
-crash> kmem -V              # 显示 vm_stat 表
-crash> kmem -o              # 显示 CPU 偏移值
-crash> kmem -h              # 显示 hugepage 信息
+# Other
+crash> kmem -c              # verify page_hash_table
+crash> kmem -V              # display vm_stat table
+crash> kmem -o              # display CPU offset values
+crash> kmem -h              # display hugepage information
 
-# 查找地址所属
-crash> kmem <addr>          # 查找地址属于哪个 slab/page
+# Find address ownership
+crash> kmem <addr>          # find which slab/page an address belongs to
 ```
 
-## foreach - 批量任务操作
+## foreach - Batch Task Operations
 
-对一组任务执行同一命令：
+Execute the same command on a set of tasks:
 
 ```
-# 基本语法
+# Basic syntax
 foreach [pid|taskp|name|state] <command> [flags]
 
-# 进程状态筛选
+# Process state filtering
 RU  - Running
 IN  - Interruptible
 UN  - Uninterruptible
@@ -252,13 +252,13 @@ PA  - Parked
 ID  - Idle
 NE  - New
 
-# 特殊筛选
-kernel      # 内核线程
-user        # 用户进程
-gleader     # 线程组领导者
-active      # 活动任务
+# Special filtering
+kernel      # kernel threads
+user        # user processes
+gleader     # thread group leaders
+active      # active tasks
 
-# 支持的命令及其标志
+# Supported commands and their flags
 bt:     -r -t -l -e -R -f -F -o -s -x -d
 vm:     -p -v -m -R -d -x
 task:   -R -d -x
@@ -267,80 +267,80 @@ net:    -s -S -R -d -x
 ps:     -G -s -p -c -t -l -a -g -r -y
 sig:    -g
 vtop:   -c -u -k
-set:    (无标志)
+set:    (no flags)
 
-# 示例
-crash> foreach bt              # 所有进程调用栈
-crash> foreach bash task       # 所有 bash 进程的 task_struct
-crash> foreach files           # 所有进程打开的文件
-crash> foreach UN bt           # 所有不可中断睡眠进程的调用栈
-crash> foreach kernel bt       # 所有内核线程的调用栈
-crash> foreach user ps         # 所有用户进程
-crash> foreach 'event.*' task -R state  # 正则匹配进程名
+# Examples
+crash> foreach bt              # all process call stacks
+crash> foreach bash task       # task_struct for all bash processes
+crash> foreach files           # open files for all processes
+crash> foreach UN bt           # call stacks for all uninterruptible processes
+crash> foreach kernel bt       # call stacks for all kernel threads
+crash> foreach user ps         # all user processes
+crash> foreach 'event.*' task -R state  # regex match process names
 ```
 
-## bt - 高级选项
+## bt - Advanced Options
 
-调用栈回溯的高级用法：
-
-```
-# CPU 相关
--a              # 所有 CPU 的活动任务
--c cpu          # 指定 CPU（可逗号分隔多个）
-
-# 栈帧展开
--f              # 展开每个栈帧的原始数据
--F              # 符号化显示栈帧数据
-
-# 符号信息
--l              # 显示源文件和行号
--s              # 显示符号名和偏移
--x              # 十六进制偏移（配合 -s）
--d              # 十进制偏移（配合 -s）
-
-# 栈分析
--t              # 显示栈中所有文本符号
--T              # 从 task_struct 上方开始
--e              # 搜索栈中的异常帧
--v              # 检查栈溢出
-
-# 过滤
--R symbol       # 仅显示引用该符号的栈
--n idle         # 过滤 idle 任务
--g              # 显示线程组所有线程
-
-# 自定义起点
--I ip           # 指定起始指令指针
--S sp           # 指定起始栈指针
-
-# 兼容性
--o              # 使用旧版回溯方法
--O              # 默认使用旧版方法
-
-# 示例
-crash> bt -a                   # 所有 CPU 活动任务
-crash> bt -c 0,2               # CPU 0 和 2
-crash> bt -f 1592              # 展开进程 1592 的栈帧
-crash> bt -F -l                # 符号化 + 源码行号
-crash> bt -sx                  # 符号名 + 十六进制偏移
-crash> bt -e                   # 搜索异常帧
-crash> bt -v                   # 检查栈溢出
-crash> bt -R spin_lock         # 仅显示含 spin_lock 的栈
-crash> bt -I ffffffff81000000 -S ffff880000000000  # 自定义起点
-```
-
-## gdb 直通模式
-
-直接使用 GDB 命令：
+Advanced usage of stack backtrace:
 
 ```
-# 单次调用
+# CPU related
+-a              # active tasks on all CPUs
+-c cpu          # specified CPU (comma-separated for multiple)
+
+# Stack frame expansion
+-f              # expand raw data for each stack frame
+-F              # symbolic display of stack frame data
+
+# Symbol information
+-l              # display source file and line number
+-s              # display symbol name and offset
+-x              # hexadecimal offset (with -s)
+-d              # decimal offset (with -s)
+
+# Stack analysis
+-t              # display all text symbols in stack
+-T              # start from above task_struct
+-e              # search for exception frames in stack
+-v              # check for stack overflow
+
+# Filtering
+-R symbol       # only show stacks referencing this symbol
+-n idle         # filter idle tasks
+-g              # display all threads in thread group
+
+# Custom start point
+-I ip           # specify starting instruction pointer
+-S sp           # specify starting stack pointer
+
+# Compatibility
+-o              # use legacy backtrace method
+-O              # default to legacy method
+
+# Examples
+crash> bt -a                   # active tasks on all CPUs
+crash> bt -c 0,2               # CPUs 0 and 2
+crash> bt -f 1592              # expand stack frames for process 1592
+crash> bt -F -l                # symbolic + source line number
+crash> bt -sx                  # symbol name + hexadecimal offset
+crash> bt -e                   # search for exception frames
+crash> bt -v                   # check for stack overflow
+crash> bt -R spin_lock         # only stacks containing spin_lock
+crash> bt -I ffffffff81000000 -S ffff880000000000  # custom start point
+```
+
+## GDB Passthrough Mode
+
+Directly use GDB commands:
+
+```
+# Single invocation
 crash> gdb help
 crash> gdb bt
 crash> gdb info registers
 crash> gdb x/20i $rip
 
-# 持续 gdb 模式
+# Persistent gdb mode
 crash> set gdb on
 (gdb) bt
 (gdb) info threads
@@ -348,17 +348,17 @@ crash> set gdb on
 (gdb) print *current
 (gdb) set gdb off
 
-# 在 gdb 模式下调用 crash 命令
+# Call crash commands in gdb mode
 (gdb) crash bt
 (gdb) crash ps
 
-# 常用 gdb 命令
-(gdb) info registers       # 寄存器信息
-(gdb) info threads         # 线程信息
-(gdb) frame N              # 切换栈帧
-(gdb) up/down              # 上下移动栈帧
-(gdb) print <expr>         # 打印表达式
-(gdb) x/NFU <addr>         # 检查内存
-(gdb) disassemble          # 反汇编
-(gdb) list                 # 源码列表
+# Common gdb commands
+(gdb) info registers       # register information
+(gdb) info threads         # thread information
+(gdb) frame N              # switch stack frame
+(gdb) up/down              # move up/down stack frames
+(gdb) print <expr>         # print expression
+(gdb) x/NFU <addr>         # examine memory
+(gdb) disassemble          # disassemble
+(gdb) list                 # source code listing
 ```

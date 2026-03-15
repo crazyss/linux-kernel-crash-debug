@@ -1,77 +1,77 @@
-# vmcore 文件格式
+# vmcore File Format
 
-内核转储文件格式详解。
+Detailed kernel dump file format reference.
 
-## ELF 格式基础
+## ELF Format Basics
 
-vmcore 通常采用 ELF (Executable and Linkable Format) 格式：
+vmcore typically uses ELF (Executable and Linkable Format):
 
 ```bash
-# 查看 vmcore 类型
+# Check vmcore type
 file vmcore
-# 输出: ELF 64-bit LSB core file, x86-64, version 1 (SYSV), SVR4-style
+# Output: ELF 64-bit LSB core file, x86-64, version 1 (SYSV), SVR4-style
 
-# 查看 ELF 头
+# View ELF header
 readelf -h vmcore
 
-# 查看 Program Headers（描述内存段）
+# View Program Headers (describe memory segments)
 readelf -l vmcore
 
-# 查看 Section Headers
+# View Section Headers
 readelf -S vmcore
 
-# 查看 Note Sections
+# View Note Sections
 readelf -n vmcore
 
-# 使用 objdump 查看
+# Use objdump to view
 objdump -p vmcore     # Program Headers
-objdump -x vmcore     # 所有头信息
+objdump -x vmcore     # All header information
 ```
 
-### ELF Core Dump 结构
+### ELF Core Dump Structure
 
 ```
 +------------------+
-|   ELF Header     |  <- 文件类型: ET_CORE
+|   ELF Header     |  <- File type: ET_CORE
 +------------------+
-| Program Headers  |  <- 描述内存段
+| Program Headers  |  <- Describe memory segments
 +------------------+
-|  Note Sections   |  <- VMCOREINFO, 寄存器等
+|  Note Sections   |  <- VMCOREINFO, registers, etc.
 +------------------+
-|   Memory Segments|  <- 实际内存内容
+|   Memory Segments|  <- Actual memory contents
 +------------------+
 ```
 
 ## VMCOREINFO
 
-VMCOREINFO 是一个特殊的 ELF note section，包含内核关键信息：
+VMCOREINFO is a special ELF note section containing critical kernel information:
 
 ```
-# 在 crash 中查看
+# View in crash
 crash> sys -i
 
-# 使用 readelf 查看
+# View with readelf
 readelf -n vmcore | grep -A 100 VMCOREINFO
 
-# 提取并解析
+# Extract and parse
 crash> p *vmcoreinfo_data
 ```
 
-### 关键字段
+### Key Fields
 
-| 字段 | 说明 |
-|------|------|
-| `OSRELEASE` | 内核版本字符串 |
-| `PAGESIZE` | 页面大小 |
-| `init_uts_ns.name.release` | 内核版本 |
-| `phys_base` | 物理地址基址（x86_64） |
-| `VA_BITS` | 虚拟地址位数（ARM64） |
-| `KERNELOFFSET` | 内核偏移（KASLR） |
-| `CRASHTIME` | 崩溃时间戳 |
+| Field | Description |
+|-------|-------------|
+| `OSRELEASE` | Kernel version string |
+| `PAGESIZE` | Page size |
+| `init_uts_ns.name.release` | Kernel version |
+| `phys_base` | Physical address base (x86_64) |
+| `VA_BITS` | Virtual address bits (ARM64) |
+| `KERNELOFFSET` | Kernel offset (KASLR) |
+| `CRASHTIME` | Crash timestamp |
 
-### 结构体信息
+### Structure Information
 
-VMCOREINFO 包含关键结构体的大小和成员偏移：
+VMCOREINFO contains sizes and member offsets of key structures:
 
 ```
 SIZE(page)=64
@@ -85,7 +85,7 @@ SIZE(free_area)=...
 SIZE(list_head)=16
 ```
 
-### 符号地址
+### Symbol Addresses
 
 ```
 init_uts_ns=ffffffff8283a040
@@ -94,244 +94,244 @@ swapper_pg_dir=ffffffff82800000
 init_task=ffffffff82812480
 ```
 
-## 支持的转储格式
+## Supported Dump Formats
 
 ### 1. ELF Core Dump
 
-标准 ELF 格式，最通用：
+Standard ELF format, most universal:
 
 ```bash
-# 特点
-- 可用 gdb 直接读取
-- 包含完整的内存布局信息
-- 支持压缩（ELF with gzip/xz）
+# Features
+- Can be read directly by gdb
+- Contains complete memory layout information
+- Supports compression (ELF with gzip/xz)
 
-# 生成方式
-kdump (默认配置)
+# Generation method
+kdump (default configuration)
 makedumpfile -E vmcore vmcore.elf
 ```
 
 ### 2. kdump Compressed
 
-压缩格式，节省空间：
+Compressed format, saves space:
 
 ```bash
-# 特点
-- 默认压缩格式
-- 需要 crash 或 makedumpfile 解析
-- 支持过滤和压缩级别
+# Features
+- Default compression format
+- Requires crash or makedumpfile to parse
+- Supports filtering and compression levels
 
-# 生成方式
-kdump (压缩配置)
+# Generation method
+kdump (compression configuration)
 makedumpfile -c -d 31 vmcore vmcore.kdump
 
-# 解压为 ELF
+# Decompress to ELF
 makedumpfile -E vmcore.kdump vmcore.elf
 ```
 
 ### 3. diskdump
 
-Red Hat diskdump 格式：
+Red Hat diskdump format:
 
 ```bash
-# 特点
-- Red Hat 历史格式
-- 支持压缩
-- 需要特定内核补丁
+# Features
+- Red Hat historical format
+- Supports compression
+- Requires specific kernel patches
 
-# 识别
+# Identification
 crash> sys
 DUMPFILE: diskdump
 ```
 
 ### 4. netdump
 
-Red Hat netdump 格式：
+Red Hat netdump format:
 
 ```bash
-# 特点
-- 通过网络传输转储
-- 用于远程崩溃收集
-- 需要 netdump 服务器
+# Features
+- Dump transfer via network
+- Used for remote crash collection
+- Requires netdump server
 
-# 识别
+# Identification
 crash> sys
 DUMPFILE: netdump
 ```
 
 ### 5. LKCD
 
-Linux Kernel Crash Dump：
+Linux Kernel Crash Dump:
 
 ```bash
-# 特点
-- 早期 Linux 转储机制
-- 分段存储
-- 已较少使用
+# Features
+- Early Linux dump mechanism
+- Segmented storage
+- Rarely used now
 ```
 
 ### 6. Raw RAM Dump
 
-原始内存转储：
+Raw memory dump:
 
 ```bash
-# 启动方式
+# Startup method
 crash vmlinux ddr.bin --ram_start=0x80000000
 
-# 多个内存块
+# Multiple memory regions
 crash vmlinux ddr1.bin@0x80000000 ddr2.bin@0x880000000
 
-# 特点
-- 无 ELF 头
-- 需要指定物理起始地址
-- 常用于嵌入式系统
+# Features
+- No ELF header
+- Requires specifying physical start address
+- Common in embedded systems
 ```
 
-## kdump 工作原理
+## kdump Working Principle
 
-### 正常内核 vs 捕获内核
+### Normal Kernel vs Capture Kernel
 
 ```
 +-------------------+     +-------------------+
-|   正常内核        |     |   捕获内核        |
-|   (生产系统)      |     |   (kdump 内核)    |
+|   Normal Kernel   |     |  Capture Kernel   |
+|   (Production)    |     |   (kdump kernel)  |
 +-------------------+     +-------------------+
         |                         |
         | crash/panic             |
         |------------------------>|
-        |   kexec 快速重启        |
+        |   kexec fast reboot     |
         |                         |
-        |                   生成 vmcore
+        |                   generate vmcore
         |                         |
         v                         v
 ```
 
-### 内存预留
+### Memory Reservation
 
 ```bash
-# 查看 kdump 预留内存
+# View kdump reserved memory
 cat /sys/kernel/kexec_crash_size
 
-# GRUB 配置
-crashkernel=128M@16M      # 固定位置
-crashkernel=auto          # 自动计算
-crashkernel=256M,high     # 高端内存
+# GRUB configuration
+crashkernel=128M@16M      # Fixed location
+crashkernel=auto          # Auto calculation
+crashkernel=256M,high     # High memory
 ```
 
-### 转储流程
+### Dump Process
 
 ```
-1. 内核 panic
-2. kexec 快速启动捕获内核
-3. 捕获内核运行
-4. 通过 /proc/vmcore 读取内存
-5. makedumpfile 处理并保存
-6. 重启系统
+1. Kernel panic
+2. kexec quickly starts capture kernel
+3. Capture kernel runs
+4. Read memory via /proc/vmcore
+5. makedumpfile processes and saves
+6. Reboot system
 ```
 
-## makedumpfile 工具
+## makedumpfile Tool
 
-处理和压缩 vmcore：
+Process and compress vmcore:
 
 ```bash
-# 基本用法
+# Basic usage
 makedumpfile vmcore vmcore.filtered
 
-# 压缩
+# Compression
 makedumpfile -c vmcore vmcore.compressed   # zlib
 makedumpfile -l vmcore vmcore.compressed   # lzo
 makedumpfile -p vmcore vmcore.compressed   # snappy
 
-# 过滤（-d 级别）
-# 1: 排除零页
-# 2: 排除缓存页
-# 4: 排除缓存私有页
-# 8: 排除用户数据页
-# 16: 排除空闲页
-makedumpfile -d 31 -c vmcore vmcore.small  # 最小化
+# Filtering (-d levels)
+# 1: Exclude zero pages
+# 2: Exclude cache pages
+# 4: Exclude cache private pages
+# 8: Exclude user data pages
+# 16: Exclude free pages
+makedumpfile -d 31 -c vmcore vmcore.small  # Minimize
 
-# 转换为 ELF
+# Convert to ELF
 makedumpfile -E vmcore vmcore.elf
 
-# 查看信息
+# View information
 makedumpfile -f vmcore
 
-# 分割大文件
+# Split large files
 makedumpfile --split vmcore part1 part2 part3
 
-# 合并分割文件
+# Reassemble split files
 makedumpfile --reassemble part1 part2 part3 vmcore
 ```
 
-## vmcore 分析技巧
+## vmcore Analysis Tips
 
-### 检查 vmcore 完整性
+### Check vmcore Integrity
 
 ```bash
-# 使用 file 命令
+# Use file command
 file vmcore
 
-# 使用 crash 测试加载
+# Use crash to test load
 crash --osrelease vmcore
 
-# 检查 VMCOREINFO
+# Check VMCOREINFO
 readelf -n vmcore | grep VMCOREINFO
 ```
 
-### 查找匹配的 vmlinux
+### Find Matching vmlinux
 
 ```bash
-# 从 vmcore 提取内核版本
+# Extract kernel version from vmcore
 strings vmcore | grep "Linux version"
 readelf -n vmcore | grep OSRELEASE
 
-# 或在 crash 中
+# Or in crash
 crash --osrelease vmcore
 ```
 
-### 处理损坏的 vmcore
+### Handle Corrupted vmcore
 
 ```bash
-# 跳过错误检查
+# Skip error checking
 crash --no_kallsyms vmlinux vmcore
 
-# 使用最小加载
+# Use minimal loading
 crash --minimal vmlinux vmcore
 ```
 
-### 从部分内存重建
+### Rebuild from Partial Memory
 
 ```bash
-# 多个内存区域
+# Multiple memory regions
 crash vmlinux mem1.bin@0x0 mem2.bin@0x100000000
 
-# 使用 System.map 替代部分符号
+# Use System.map instead of partial symbols
 crash -S System.map vmlinux vmcore
 ```
 
-## 调试信息
+## Debugging Information
 
-### 查看 vmcore 详细信息
+### View vmcore Details
 
 ```
 crash> sys
 crash> sys -i           # VMCOREINFO
-crash> sys -t           # panic 时间
-crash> sys -n           # NMI 信息
+crash> sys -t           # panic time
+crash> sys -n           # NMI information
 ```
 
-### 内存布局
+### Memory Layout
 
 ```
-crash> kmem -v          # vmalloc 区域
-crash> kmem -n          # 内存节点信息
-crash> vtop <addr>      # 地址翻译
+crash> kmem -v          # vmalloc region
+crash> kmem -n          # memory node information
+crash> vtop <addr>      # address translation
 ```
 
-### CPU 状态
+### CPU State
 
 ```
-crash> bt -a            # 所有 CPU 调用栈
-crash> mach             # 机器信息
-crash> set -c <cpu>     # 切换 CPU 上下文
+crash> bt -a            # all CPU call stacks
+crash> mach             # machine information
+crash> set -c <cpu>     # switch CPU context
 ```
