@@ -247,3 +247,13 @@ crash: cannot resolve symbol
 - [Crash Utility Whitepaper](https://crash-utility.github.io/crash_whitepaper.html)
 - [Crash Utility Documentation](https://crash-utility.github.io/)
 - [Crash Help Pages](https://crash-utility.github.io/help_pages/)
+
+## Contributing
+
+This is an open-source project. Contributions are welcome!
+
+- **GitHub Repository**: https://github.com/crazyss/linux-kernel-crash-debug
+- **Report Issues**: [GitHub Issues](https://github.com/crazyss/linux-kernel-crash-debug/issues)
+- **Submit PRs**: Pull requests are welcome for bug fixes, new features, or documentation improvements
+
+See [CONTRIBUTING.md](https://github.com/crazyss/linux-kernel-crash-debug/blob/main/CONTRIBUTING.md) for guidelines.
