@@ -1,6 +1,12 @@
 ---
 name: linux-kernel-crash-debug
 description: Debug Linux kernel crashes using the crash utility. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, or locating root causes of kernel issues.
+requires:
+  - crash
+  - gdb
+  - readelf
+  - objdump
+  - makedumpfile
 ---
 
 # Linux Kernel Crash Debugging
@@ -57,13 +63,57 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 | **vmcore** | kdump/netdump/diskdump/ELF format |
 | **Version** | vmlinux must exactly match the vmcore kernel version |
 
-Obtaining debuginfo:
-```bash
-# RHEL/CentOS
-yum install kernel-debuginfo
+### Package Installation
 
-# Self-compiled kernel
-make menuconfig  # Enable CONFIG_DEBUG_INFO
+#### Anolis OS / Alibaba Cloud Linux
+
+```bash
+# Install crash utility
+sudo dnf install crash
+
+# Install kernel debuginfo (match your kernel version)
+sudo dnf install kernel-debuginfo-$(uname -r)
+
+# Install additional analysis tools
+sudo dnf install gdb readelf objdump makedumpfile
+
+# Optional: Install kernel-devel for source code reference
+sudo dnf install kernel-devel-$(uname -r)
+```
+
+#### RHEL / CentOS / Rocky / AlmaLinux
+
+```bash
+sudo dnf install crash kernel-debuginfo-$(uname -r)
+sudo dnf install gdb binutils makedumpfile
+```
+
+#### Ubuntu / Debian
+
+```bash
+sudo apt install crash linux-crashdump gdb binutils makedumpfile
+sudo apt install linux-image-$(uname -r)-dbgsym
+```
+
+### Self-compiled Kernel
+
+```bash
+# Enable debug symbols in kernel config
+make menuconfig  # Enable CONFIG_DEBUG_INFO, CONFIG_DEBUG_INFO_REDUCED=n
+
+# Or set directly
+scripts/config --enable CONFIG_DEBUG_INFO
+scripts/config --enable CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT
+```
+
+### Verify Installation
+
+```bash
+# Check crash version
+crash --version
+
+# Verify debuginfo matches kernel
+crash /usr/lib/debug/lib/modules/$(uname -r)/vmlinux /proc/kcore
 ```
 
 ## Core Command Reference
@@ -234,6 +284,34 @@ crash: cannot find booted kernel
 crash: cannot resolve symbol
 # -> Check if vmlinux has debug symbols
 ```
+
+## Security Warnings
+
+⚠️ **Dangerous Operations**
+
+The following commands can cause system damage or data loss:
+
+| Command | Risk | Recommendation |
+|---------|------|----------------|
+| `wr` | Writes to live kernel memory | **NEVER use on production systems** - can crash or corrupt running kernel |
+| GDB passthrough | Unrestricted memory access | Use with caution, may modify memory or registers |
+
+🔒 **Sensitive Data Handling**
+
+- **vmcore files** contain complete kernel memory, potentially including:
+  - User process memory and credentials
+  - Encryption keys and secrets
+  - Network connection data and passwords
+- **Access control**: Restrict vmcore file access to authorized personnel
+- **Secure storage**: Store dump files in encrypted or access-controlled directories
+- **Secure disposal**: Use `shred` or secure delete when disposing of vmcore files
+
+🛡️ **Best Practices**
+
+1. Only analyze vmcore files in isolated/test environments when possible
+2. Never share raw vmcore files publicly without sanitization
+3. Consider using `makedumpfile -d` to filter sensitive pages before analysis
+4. Document and audit all crash analysis sessions for compliance
 
 ## Important Notes
 
