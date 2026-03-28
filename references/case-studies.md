@@ -355,3 +355,411 @@ crash> foreach bt -v
 - Too deep recursion
 - Or allocating large structures on stack
 - Need to change to dynamic allocation or reduce recursion depth
+
+---
+
+## Case 6: Soft Lockup Detection
+
+### Symptoms
+
+```
+BUG: soft lockup - CPU#3 stuck for 23s! [kworker/3:1:1234]
+```
+
+### Analysis Steps
+
+```
+# 1. Check system info and panic reason
+crash> sys
+PANIC: "soft lockup detected"
+
+# 2. View CPU state at crash
+crash> bt -a
+CPU 0:
+...
+CPU 3:   # <-- Stuck CPU
+#0 schedule at ffffffff81a12345
+#1 schedule_timeout at ffffffff81a13456
+#2 wait_for_completion at ffffffff81a14567
+#3 my_driver_process at ffffffff81234560
+PID: 1234   TASK: ffff88012a000000  CPU: 3   COMMAND: "kworker/3:1"
+
+# 3. Check if CPU was spinning in a loop
+crash> bt -f 1234
+#3 my_driver_process at ffffffff81234560
+    rsp: ffffc90000123e00
+    rdi: ffff88012b000000   # Lock pointer
+    rsi: 0000000000000001   # Locked state
+
+# 4. Examine the lock state
+crash> struct spinlock ffff88012b000000
+struct spinlock {
+  raw_lock = {
+    val = {
+      counter = 1     # Lock is held!
+    }
+  }
+}
+
+# 5. Find who holds the lock
+crash> search -t ffff88012b000000
+PID: 5678  TASK: ffff88012a001000  CPU: 2  COMMAND: "thread_B"
+
+# 6. Check thread_B's state
+crash> bt 5678
+PID: 5678   TASK: ffff88012a001000  CPU: 2   COMMAND: "thread_B"
+#0 schedule
+#1 schedule_timeout
+#2 __down
+#3 down
+#4 another_function
+
+# 7. Check timer queue
+crash> timer
+JIFFIES: 4294891234
+...
+```
+
+### Root Cause Analysis
+
+- CPU 3 is waiting for a spinlock held by thread_B
+- thread_B is sleeping (in `down()`) while holding the spinlock
+- This violates the rule: **never sleep while holding a spinlock**
+- Soft lockup occurs because CPU spins for too long
+
+### Fix Strategy
+
+```c
+// Before: Holding spinlock while sleeping
+spin_lock(&my_lock);
+down(&semaphore);  // BUG: Can sleep!
+spin_unlock(&my_lock);
+
+// After: Release spinlock before sleeping
+spin_lock(&my_lock);
+got_value = value;
+spin_unlock(&my_lock);
+down(&semaphore);  // OK: No spinlock held
+```
+
+---
+
+## Case 7: Kernel Module (Driver) Crash
+
+### Symptoms
+
+```
+BUG: unable to handle kernel paging request at ffffffffa0123456
+RIP: 0010:my_driver_ioctl+0x56/0x100 [my_driver]
+```
+
+### Analysis Steps
+
+```
+# 1. Check module information
+crash> mod
+NAME               BASE               SIZE
+my_driver          ffffffffa0100000  16384
+
+# 2. View the crash location
+crash> bt
+#0 __die at ffffffff8105a2b0
+#1 exc_page_fault at ffffffff8105b3c0
+#2 my_driver_ioctl at ffffffffa0123456 [my_driver]
+#3 vfs_ioctl at ffffffff81210000
+#4 sys_ioctl at ffffffff81210100
+
+# 3. Disassemble the problematic function
+crash> dis my_driver_ioctl
+0xffffffffa0123400 <my_driver_ioctl>:    push   rbp
+...
+0xffffffffa0123456 <my_driver_ioctl+0x56>: mov    (%rax),%rbx  # Crash here
+
+# 4. Check function with source info
+crash> bt -l
+#2 my_driver_ioctl at /home/user/my_driver.c:234
+
+# 5. Expand stack to see register values
+crash> bt -f
+#2 my_driver_ioctl at ffffffffa0123456
+    rax = 0x0000000000000000   # NULL pointer!
+    rbx = 0xffff880123456000
+    rcx = 0x0000000000000001
+
+# 6. Check module data structures
+crash> struct my_device_data 0xffff880123456000
+struct my_device_data {
+  lock = {...},
+  buffer = 0x0,        # NULL!
+  size = 4096,
+  ...
+}
+
+# 7. List all instances of this module's structures
+crash> list my_device.list -s my_device -h my_device_head
+ffff880123456000
+  lock = {...}
+  buffer = 0x0        # Problem: buffer is NULL
+  size = 4096
+```
+
+### Root Cause Analysis
+
+- `my_device_data.buffer` is NULL
+- Code tried to dereference it: `mov (%rax), %rbx` where `rax = 0`
+- Missing NULL check after allocation
+
+### Fix Strategy
+
+```c
+// In driver code:
+static long my_driver_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct my_device_data *data = filp->private_data;
+
+    if (!data->buffer) {  // Add NULL check
+        pr_err("buffer not allocated\n");
+        return -ENOMEM;
+    }
+    // ... rest of code
+}
+```
+
+---
+
+## Case 8: Slab Corruption Detection
+
+### Symptoms
+
+```
+kernel: Slab corruption (kmalloc-256) detected
+kernel: Object 0xffff88012a001000: padding bytes corrupted
+```
+
+### Analysis Steps
+
+```
+# 1. Check slab information
+crash> kmem -i
+                 PAGES        TOTAL      PERCENTAGE
+TOTAL MEM       8388608      32 GB         ----
+FREE            104857       400 MB         1%
+...
+SLAB            1572864       6 GB        18%
+
+# 2. Find the corrupted slab cache
+crash> kmem -S kmalloc-256
+CACHE    NAME          OBJSIZE  ALLOCATED  TOTAL  SLABS  SSIZE
+ffff88012a000000  kmalloc-256   256       150      200    13    8k
+
+# 3. Examine the corrupted object
+crash> rd 0xffff88012a001000 32
+ffff88012a001000:  0000000000000001 0000000000000002   ................
+...
+ffff88012a001100:  deadbeefcafebabe 5a5a5a5a5a5a5a5a   # Redzone pattern!
+
+# 4. Find who allocated this object
+crash> kmem 0xffff88012a001000
+CACHE: ffff88012a000000  NAME: kmalloc-256
+SLAB:  ffff88012a010000
+OBJECT: 0xffff88012a001000
+
+# 5. Check adjacent objects for corruption
+crash> kmem -S kmalloc-256 | grep -A5 -B5 ffff88012a001
+
+# 6. Search for memory pattern
+crash> search -k deadbeefcafebabe
+ffff88012a001100: deadbeefcafebabe   # Found in redzone
+
+# 7. Check process using this memory
+crash> foreach vm | grep ffff88012a001
+PID: 5678  TASK: ffff88012b000000  ...
+```
+
+### Root Cause Analysis
+
+- Redzone pattern `deadbeefcafebabe` overwritten
+- Adjacent object wrote beyond its bounds
+- Typical buffer overflow in adjacent allocation
+
+### Fix Strategy
+
+```c
+// Check adjacent allocations
+crash> rd 0xffff88012a000e00 20  # Previous object end
+crash> rd 0xffff88012a001200 20  # Next object start
+
+// In kernel code, ensure bounds checking
+memcpy(dest, src, min(size, allocated_size));
+```
+
+---
+
+## Case 9: Interrupt Context Issues
+
+### Symptoms
+
+```
+BUG: scheduling while atomic: swapper/0/0/0x00000100
+```
+
+### Analysis Steps
+
+```
+# 1. Check the crashing process
+crash> ps | grep swapper
+  0  SW   0.0   0  ffff88012a000000  swapper/0
+
+# 2. View call stack
+crash> bt
+PID: 0   TASK: ffff88012a000000  CPU: 0   COMMAND: "swapper/0"
+#0 __schedule_bug at ffffffff8105a2b0
+#1 schedule at ffffffff81a12345
+#2 schedule_timeout at ffffffff81a13456
+#3 wait_for_completion at ffffffff81a14567
+#4 my_interrupt_handler at ffffffff81234560
+#5 handle_irq at ffffffff81001234
+
+# 3. Check preempt count
+crash> struct task_struct.preempt_count ffff88012a000000
+preempt_count = 0x100   # PREEMPT_MASK = 1, interrupt context!
+
+# 4. Verify interrupt context
+crash> bt -f
+#4 my_interrupt_handler
+    preempt_count = 0x100   # Confirm: in interrupt
+
+# 5. Check the problematic function
+crash> dis my_interrupt_handler
+...
+call wait_for_completion   # BUG: Can sleep in interrupt!
+...
+```
+
+### Root Cause Analysis
+
+- `wait_for_completion()` can sleep
+- Called from interrupt handler (atomic context)
+- Kernel detected scheduling attempt with non-zero preempt_count
+
+### Fix Strategy
+
+```c
+// Before: Sleeping in interrupt context
+irqreturn_t my_interrupt_handler(int irq, void *dev_id)
+{
+    wait_for_completion(&done);  // BUG!
+    return IRQ_HANDLED;
+}
+
+// After: Use workqueue or tasklet
+irqreturn_t my_interrupt_handler(int irq, void *dev_id)
+{
+    schedule_work(&my_work);  // Defer to process context
+    return IRQ_HANDLED;
+}
+
+void my_work_func(struct work_struct *work)
+{
+    wait_for_completion(&done);  // OK: Not in interrupt
+}
+```
+
+---
+
+## Case 10: Double Fault Analysis
+
+### Symptoms
+
+```
+PANIC: double fault
+```
+
+### Analysis Steps
+
+```
+# 1. Check system info
+crash> sys
+PANIC: "double fault"
+
+# 2. View the crash stack
+crash> bt
+PID: 1234   TASK: ffff88012a000000  CPU: 0   COMMAND: "test"
+#0 double_fault at ffffffff81c01234
+#1 ???
+#2 ???
+
+# 3. Check stack pointer validity
+crash> set
+TASK: ffff88012a000000  CPU: 0  COMMAND: "test"
+RSP: ffffc90000123fc0   # Check if valid
+RBP: 0000000000000000   # Corrupted!
+
+# 4. Examine raw stack
+crash> bt -r
+stacktop: ffffc90000124000
+[...corrupted stack data...]
+
+# 5. Check thread info
+crash> struct thread_info ffff88012a000000
+struct thread_info {
+  flags = 0,
+  status = 0,
+  ...
+}
+
+# 6. Look for stack corruption patterns
+crash> rd ffffc90000120000 4096 | grep -v "00000000"
+
+# 7. Check if it's a stack overflow
+crash> bt -v
+Stack pointer 0xffdf0000 is not in kernel stack range
+```
+
+### Root Cause Analysis
+
+Double fault typically occurs when:
+1. Stack pointer is corrupted
+2. Page fault handler causes another page fault
+3. Exception table overflow
+
+### Common Causes
+
+| Cause | Detection |
+|-------|-----------|
+| Stack overflow | `bt -v` shows overflow |
+| Corrupted RSP | RSP outside valid range |
+| Invalid TSS | Check `struct tss_struct` |
+| NMI during page fault | Check `irq_count` |
+
+---
+
+## Quick Reference: Tool Selection Guide
+
+| Bug Type | Primary Tool | Secondary Tools |
+|----------|--------------|-----------------|
+| Kernel panic/crash | crash utility | kdump, netdump |
+| Deadlock | crash `bt -a`, `search` | lockdep |
+| OOM | crash `kmem -i` | memwatch |
+| NULL pointer | crash `bt`, `struct`, `dis` | KASAN |
+| Stack overflow | crash `bt -v`, `bt -r` | STACKPROTECTOR |
+| Soft lockup | crash `bt -a`, `search -t` | lockdep |
+| Module crash | crash `mod`, `dis`, `struct` | KASAN |
+| Slab corruption | crash `kmem -S`, `rd`, `search` | SLUB debug |
+| Interrupt issues | crash `bt`, `struct task_struct` | lockdep |
+| Double fault | crash `bt -v`, `bt -r` | KASAN |
+
+---
+
+## Additional Resources
+
+- **Crash Utility Whitepaper**: https://crash-utility.github.io/crash_whitepaper.html
+- **Crash Utility Documentation**: https://crash-utility.github.io/
+- **Crash Help Pages**: https://crash-utility.github.io/help_pages/
+- **Linux Kernel Debugging Book**: https://github.com/PacktPublishing/Linux-Kernel-Debugging
+
+---
+
+## Need Deeper Debugging?
+
+For advanced debugging methods beyond crash utility analysis (KASAN, Kprobes, Kmemleak, etc.), refer to `references/debug-tools-guide.md` for guidance on kernel configuration and tool setup.

@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-description: 使用 crash 工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因时，使用此 skill。
+description: 使用 crash 工具和内存调试工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因、KASAN、Kprobes、Kmemleak、内存损坏、越界访问、释放后使用、内存泄漏检测时，使用此 skill。
 ---
 
 # Linux Kernel Crash Debugging

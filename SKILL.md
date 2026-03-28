@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-description: Debug Linux kernel crashes using the crash utility. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, or locating root causes of kernel issues.
+description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
 requires:
   - crash
   - gdb
@@ -264,7 +264,8 @@ For detailed information, refer to the following reference files:
 |------|---------|
 | `references/advanced-commands.md` | Advanced commands: list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
-| `references/case-studies.md` | Detailed debugging cases: kernel BUG, deadlock, OOM, NULL pointer, stack overflow |
+| `references/case-studies.md` | Debugging cases: kernel BUG, deadlock, OOM, NULL pointer, stack overflow |
+| `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
 
 Usage:
 ```
