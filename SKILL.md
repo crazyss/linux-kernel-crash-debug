@@ -1,12 +1,16 @@
 ---
 name: linux-kernel-crash-debug
 description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
-requires:
-  - crash
-  - gdb
-  - readelf
-  - objdump
-  - makedumpfile
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - crash
+        - gdb
+        - readelf
+        - objdump
+        - makedumpfile
+    homepage: https://github.com/crazyss/linux-kernel-crash-debug
 ---
 
 # Linux Kernel Crash Debugging
