@@ -1,0 +1,24 @@
+name: Package and Release Skill
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create Skill Package
+        run: |
+          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md agent-crash.sh references/ CONTRIBUTING.md LICENSE
+          
+      - name: Upload Release Asset
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: linux-kernel-crash-debug.skill
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
