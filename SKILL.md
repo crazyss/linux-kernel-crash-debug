@@ -59,6 +59,17 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 5. crash> kmem <addr>      # Memory analysis
 ```
 
+## 🤖 Agent Execution Directives
+If you are an AI/Agent using this skill, **do not invoke `crash` interactively** as it will block your subshell.
+1. Use the bundled wrapper `./agent-crash.sh` which maps precisely to the workflows below but safely truncates outputs:
+   - `./agent-crash.sh -k vmlinux -c vmcore triage` - Safely runs initial `sys`, `log`, and `bt`.
+   - `./agent-crash.sh -k vmlinux -c vmcore flow-oom` - Top 15 memory checks.
+   - `./agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - Pulls UN task stacks.
+   - `./agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Assembly regression.
+   - `./agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - Pattern match memory poisons.
+2. **Fallback Strategy**: If macros don't solve the issue, fall back to basic primitives manually: `./agent-crash.sh -k vmlinux -c vmcore run "rd ffff880123456780"`.
+3. Check `references/agentic-heuristics.md` for extended expert methodologies.
+
 ## Prerequisites
 
 | Item | Requirement |
