@@ -51,7 +51,7 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 
 ### Core Debugging Workflow
 
-```
+```console
 1. crash> sys              # Confirm panic reason
 2. crash> log              # View kernel log
 3. crash> bt               # Analyze call stack
@@ -167,7 +167,7 @@ crash /usr/lib/debug/lib/modules/$(uname -r)/vmlinux /proc/kcore
 
 The most important debugging command:
 
-```
+```console
 crash> bt              # Current task stack
 crash> bt -a           # All CPU active tasks
 crash> bt -f           # Expand stack frame raw data
@@ -183,7 +183,7 @@ crash> bt <pid>        # Specific process
 
 Crash session has a "current context" affecting `bt`, `files`, `vm` commands:
 
-```
+```console
 crash> set              # View current context
 crash> set <pid>        # Switch to specified PID
 crash> set <task_addr>  # Switch to task address
@@ -192,7 +192,7 @@ crash> set -p           # Restore to panic task
 
 ## Session Control
 
-```
+```console
 # Output control
 crash> set scroll off   # Disable pagination
 crash> sf               # Alias for scroll off
@@ -214,7 +214,7 @@ crash> < commands.txt
 
 ### Kernel BUG Location
 
-```
+```console
 crash> sys                    # Confirm panic
 crash> log | tail -50         # View logs
 crash> bt                     # Call stack
@@ -224,7 +224,7 @@ crash> struct <type> <addr>   # Inspect data structures
 
 ### Deadlock Analysis
 
-```
+```console
 crash> bt -a                  # All CPU call stacks
 crash> ps -m | grep UN        # Uninterruptible processes
 crash> foreach UN bt          # View waiting reasons
@@ -233,7 +233,7 @@ crash> struct mutex <addr>    # Inspect lock state
 
 ### Memory Issues
 
-```
+```console
 crash> kmem -i                # Memory statistics
 crash> kmem -S <cache>        # Inspect slab
 crash> vm <pid>               # Process memory mapping
@@ -242,7 +242,7 @@ crash> search -k <pattern>    # Search memory
 
 ### Stack Overflow
 
-```
+```console
 crash> bt -v                  # Check stack overflow
 crash> bt -r                  # Raw stack data
 ```
@@ -251,7 +251,7 @@ crash> bt -r                  # Raw stack data
 
 ### Chained Queries
 
-```
+```console
 crash> bt -f                  # Get pointers
 crash> struct file.f_dentry <addr>
 crash> struct dentry.d_inode <addr>
@@ -260,13 +260,13 @@ crash> struct inode.i_pipe <addr>
 
 ### Batch Slab Inspection
 
-```
+```console
 crash> kmem -S inode_cache | grep counter | grep -v "= 1"
 ```
 
 ### Kernel Linked List Traversal
 
-```
+```console
 crash> list task_struct.tasks -s task_struct.pid -h <start>
 crash> list -h <addr> -s dentry.d_name.name
 ```
@@ -283,14 +283,14 @@ For detailed information, refer to the following reference files:
 | `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
 
 Usage:
-```
+```console
 crash> help <command>        # Built-in help
 # Or ask Claude to view reference files
 ```
 
 ## Common Errors
 
-```
+```text
 crash: vmlinux and vmcore do not match!
 # -> Ensure vmlinux version exactly matches vmcore
 
