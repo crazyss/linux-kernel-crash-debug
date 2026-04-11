@@ -61,13 +61,13 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 
 ## 🤖 Agent Execution Directives (Agent 专用执行戒律)
 如果您是使用本技能的 AI/Agent，**绝对不要尝试开启交互式的 `crash` 会话**（会导致沙盒阻塞和上下文溢出）。
-1. 使用项目内自带的封套工具 `./agent-crash.sh`，它完美映射了下方的调试流程并自带长输出断路器：
-   - `./agent-crash.sh -k vmlinux -c vmcore triage` - 三合板基础环境探伤 (`sys`, `log`, `bt`)。
-   - `./agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
-   - `./agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
-   - `./agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 获取崩溃反汇编与现场寄存器值的组合视图。
-   - `./agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 特征码探测（检测 UAF、SLUB 等常见特征）。
-2. **底层降级策略 (Fallback Strategy)**：如果上面的宏指令排查不出结果，请通过 wrapper 执行标准内核调试命令：`./agent-crash.sh -k vmlinux -c vmcore run "rd ffff8800..."`。
+1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，它完美映射了下方的调试流程并自带长输出断路器：
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 三合板基础环境探伤 (`sys`, `log`, `bt`)。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 获取崩溃反汇编与现场寄存器值的组合视图。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 特征码探测（检测 UAF、SLUB 等常见特征）。
+2. **底层降级策略 (Fallback Strategy)**：如果上面的宏指令排查不出结果，请通过 wrapper 执行标准内核调试命令：`./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff8800..."`。
 3. 如果您需要更高的专家视角，请查阅 `references/agentic-heuristics.md`（高阶内核黑客视角策略）。
 
 ## 前置要求

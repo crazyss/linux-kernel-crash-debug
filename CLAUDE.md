@@ -13,8 +13,11 @@ linux-kernel-crash-debug/
 ├── SKILL.md                        # Main skill definition (YAML frontmatter + Markdown)
 ├── SKILL_CN.md                     # Chinese version of the skill
 ├── README.md                       # Installation and usage instructions
+├── scripts/                        # Utility scripts
+│   └── agent-crash.sh              # Agent-safe crash wrapper
 ├── references/                     # Detailed reference documents
 │   ├── advanced-commands.md        # Advanced crash commands reference
+│   ├── agentic-heuristics.md       # Agent debugging heuristics
 │   ├── case-studies.md             # Debugging case studies
 │   ├── debug-tools-guide.md        # KASAN, Kprobes, Kmemleak guide
 │   └── vmcore-format.md            # vmcore file format details
@@ -28,7 +31,7 @@ linux-kernel-crash-debug/
 ### Package the skill (full)
 ```bash
 cd linux-kernel-crash-debug
-zip ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md references/*.md
+zip ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md references/*.md scripts/*.sh
 ```
 
 ### Update existing package

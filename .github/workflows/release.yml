@@ -19,7 +19,7 @@ jobs:
       
       - name: Create Skill Package
         run: |
-          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md agent-crash.sh references/ CONTRIBUTING.md LICENSE
+          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/ CONTRIBUTING.md LICENSE
           
       - name: Release
         uses: softprops/action-gh-release@v1

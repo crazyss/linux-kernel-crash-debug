@@ -46,11 +46,18 @@ linux-kernel-crash-debug/
 ├── README_CN.md                # Chinese documentation
 ├── CONTRIBUTING.md             # Contribution guide
 ├── LICENSE                     # MIT License
-├── linux-kernel-crash-debug.skill  # Packaged skill
-└── references/                 # Detailed documentation
-    ├── advanced-commands.md    # In-depth command usage
-    ├── vmcore-format.md        # vmcore file format details
-    └── case-studies.md         # Real-world debugging examples
+├── CLAUDE.md                   # Claude Code project config
+├── scripts/                    # Utility scripts
+│   └── agent-crash.sh          # Agent-safe crash wrapper
+├── references/                 # Detailed documentation
+│   ├── advanced-commands.md    # In-depth command usage
+│   ├── agentic-heuristics.md   # Agent debugging heuristics
+│   ├── case-studies.md         # Real-world debugging examples
+│   ├── debug-tools-guide.md    # KASAN, Kprobes, Kmemleak guide
+│   └── vmcore-format.md        # vmcore file format details
+└── .github/                    # CI & Issue templates
+    ├── ISSUE_TEMPLATE/
+    └── workflows/release.yml
 ```
 
 ## Usage
