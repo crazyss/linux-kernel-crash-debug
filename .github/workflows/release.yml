@@ -1,5 +1,8 @@
 name: Package and Release Skill
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
