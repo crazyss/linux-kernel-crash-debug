@@ -81,6 +81,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - [Crash Utility Documentation](https://crash-utility.github.io/)
 - [Crash Help Pages](https://crash-utility.github.io/help_pages/)
 
+## Acknowledgements
+
+The code repository `.agents/rules` is derived from [awesome-claude-code-toolkit](https://github.com/rohitg00/awesome-claude-code-toolkit).
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
