@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-06-14
+
+### Changed
+- `.github/workflows/release.yml`: removed `LICENSE` and `CONTRIBUTING.md` from the zip whitelist so the published `.skill` package contains only the skill manifest and runtime content. ClawHub defaults to MIT-0 and the registry validates the package against the skill manifest; an embedded `LICENSE` is redundant and can shadow the registry license.
+- `CLAUDE.md`: synchronized the local packaging command with `release.yml` and restated the whitelist-only contract (no `LICENSE`, `CONTRIBUTING.md`, `.github/`, or any repository metadata).
+- `SKILL.md` / `SKILL_CN.md`:
+  - Added `version: 1.3.1` to frontmatter so the package version matches the git tag.
+  - Completed `metadata.openclaw.requires.bins` with `kexec`, `kdumpctl`, `systemctl`, and `journalctl`, which are referenced throughout `references/kdump-setup-guide.md`. The English and Chinese frontmatters remain in lockstep.
+
 ## [1.3.0] - 2026-06-14
 
 ### Added
