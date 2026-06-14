@@ -23,10 +23,29 @@ jobs:
           # or any .github/ metadata. ClawHub defaults to MIT-0, and the registry
           # validates the package contents against the skill manifest.
           zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/
-          
+
+      - name: Create Clean Source Archive
+        env:
+          # GITHUB_REF is server-injected (e.g. "refs/tags/v1.3.1") and not
+          # attacker-controllable, but we still pass it via env to keep the
+          # shell-quoted expansion explicit.
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          # Build a clean source zip that mirrors the auto-generated
+          # "Source code (zip)" asset on the Release page, but with
+          # repository metadata excluded via .gitattributes (export-ignore).
+          # This ensures the user-facing download does not contain
+          # .github/, .gitignore, LICENSE, CONTRIBUTING.md, etc.
+          TAG="${GITHUB_REF#refs/tags/}"
+          git archive --format=zip \
+            --prefix="linux-kernel-crash-debug-${TAG}/" \
+            -o "linux-kernel-crash-debug-${TAG}.zip" HEAD
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: linux-kernel-crash-debug.skill
+          files: |
+            linux-kernel-crash-debug.skill
+            linux-kernel-crash-debug-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

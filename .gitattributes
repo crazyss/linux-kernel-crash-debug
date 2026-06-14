@@ -1,0 +1,18 @@
+# Exclude repository metadata from `git archive` outputs.
+# GitHub's auto-generated "Source code (zip/tar.gz)" assets on the
+# Release page are produced by `git archive` and respect these rules.
+# ClawHub consumes SKILL.md / SKILL_CN.md / scripts/ / references/
+# directly and is not affected by this file.
+#
+# The ClawHub skill whitelist already excludes these paths; this file
+# is here so the GitHub Release "Source code" download matches.
+
+.gitignore             export-ignore
+.github/**             export-ignore
+.agents/**             export-ignore
+LICENSE                export-ignore
+CONTRIBUTING.md        export-ignore
+CHANGELOG.md           export-ignore
+CLAUDE.md              export-ignore
+README.md              export-ignore
+README_CN.md           export-ignore
