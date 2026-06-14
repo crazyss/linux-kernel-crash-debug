@@ -194,29 +194,66 @@ CONFIG_UBSAN_TRAP=y            # Trap on undefined behavior
 
 ## 5. SLUB Debug
 
+> **Source**: [Kernel panic 实验室 - 内核维测之 slub_debug 用法参考](https://mp.weixin.qq.com/s/Chciyg7QHsMeWF3dNwQyBg) | [Kernel panic 实验室 - Slub use after free 问题讨论](https://mp.weixin.qq.com/s/SmFNmwoz4lr6F7zBi0VQqA)
+
 ### What It Does
 
-Detects corruption in slab allocator (kmalloc/kfree).
+Detects corruption in slab allocator (kmalloc/kfree), including OOB, UAF, and leaks.
 
 ### Kernel Configuration
 
 ```bash
 CONFIG_SLUB_DEBUG=y
-CONFIG_SLUB_DEBUG_ON=y
+CONFIG_DEBUG_FS=y
+CONFIG_SLUB_DEBUG_ON=y   # Opens all caches with fzpu by default
 ```
 
 ### Boot Parameters
 
 ```bash
-# Enable all SLUB debug features
-slub_debug
+# Syntax: slub_debug=<flags>,<cache1>,<cache2>,...
+slub_debug=<Debug-Option>,<slab name1>,<slab_name2>
 
-# Enable for specific caches
-slub_debug=,kmalloc-128,kmalloc-256
-
-# Enable with poisoning
-slub_debug=P
+# Examples
+slub_debug=u,kmalloc-512,kmalloc-256  # u flag for kmalloc-512 + kmalloc-256
+slub_debug=P                          # Poison all caches
+slub_debug=FZPU                       # All flags for all caches
 ```
+
+### The 5 Flags: f/z/p/u/t
+
+| Flag | Effect | Use Case |
+|------|--------|----------|
+| **f** | Check slab values on alloc/free | Detects OOB and UAF |
+| **z** | Fill redzones (left/right) with pattern | Detects OOB access |
+| **p** | Fill with `POISON_FREE`/`POISON_INUSE` | Detects UAF |
+| **u** | Save alloc/free call stacks | Memory leak investigation |
+| **t** | Print stack at every alloc/free | High overhead, debug only |
+
+**Common combinations**:
+- `fz` — minimum OOB detection
+- `fzp` — OOB + UAF
+- `fzpu` — full coverage
+- `u` alone — for leak investigation (lower overhead)
+
+### Reading slub_debug Traces
+
+```bash
+# After enabling slub_debug=u,<cache> in bootargs:
+cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
+cat /sys/kernel/debug/slab/kmalloc-512/free_traces
+# Compare to find allocs without matching frees (leaks)
+```
+
+### Limitations
+
+> **Key insight from Herbert**: slub_debug OOB detection only triggers on **alloc or free** — you can see the slab was corrupted, but **not who corrupted it**. Unlike KASAN, it cannot pinpoint the exact "culprit" instruction.
+
+For UAF: see `references/case-studies.md` Case 12 for the **misalignment UAF** challenge.
+
+### When CONFIG_SLUB_DEBUG_ON is Set
+
+This option automatically applies `DEBUG_DEFAULT_FLAGS` to all slab caches. The `kmem_cache_flags()` function then propagates the flags to every cache's `flags` field at creation time.
 
 ---
 

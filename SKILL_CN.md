@@ -166,6 +166,36 @@ crash> set gdb on       # 进入 gdb 模式
 crash> < commands.txt
 ```
 
+## ARM64 / x86_64 快速参考
+
+### 两种架构在 crash 分析中的差异
+
+| 维度 | x86_64 | ARM64 |
+|------|--------|-------|
+| crash 命令 | `crash vmlinux vmcore` | `crash_arm64 ... -m ... vmlinux vmcore` |
+| KASLR | VMCOREINFO 自动处理 | 必须传 `-m kaslr=<偏移>` |
+| 虚拟地址位宽 | 固定 | 必须传 `-m vabits_actual=<位数>` |
+| 物理基地址 | `phys_base`（VMCOREINFO）| 必须传 `-m phys_offset=<地址>` |
+| VA-PA 偏移 | `__START_KERNEL_map` 固定映射 | 必须传 `-m kimage_voffset=<值>` |
+| 帧指针 | RBP（常被 `-fomit-frame-pointer` 优化掉）| FP (x29) 显式保存 |
+| 调用约定 | RDI/RSI/RDX/RCX/R8/R9 | X0-X7 |
+
+> **完整的 ARM64 地址参数推导**，见 `references/arm64-crash-params.md`
+> **kdump 端到端配置手册**，见 `references/kdump-setup-guide.md`
+
+### ARM64 Crash 命令模板
+
+```bash
+crash_arm64 \
+  -m vabits_actual=39 \
+  -m phys_offset=0x80000000 \
+  -m kimage_voffset=0xffffffc000000000 \
+  -m kaslr=0x0 \
+  vmlinux vmcore
+```
+
+> 默认 `kaslr=0` 表示 KASLR 关闭。可根据 `/proc/kallsyms` 或 VMCOREINFO 调整。
+
 ## 典型调试场景
 
 ### kernel BUG 定位
@@ -205,6 +235,81 @@ crash> bt -r                  # 原始栈数据
 
 ## 高级技巧
 
+### 从栈回溯推导锁指针（ARM64 专用）
+
+> **来源**：[Kernel panic 实验室 - Kernel panic 实战之读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)
+
+当任务阻塞在某个锁上时，可以通过读取栈中的 callee-saved 寄存器反推锁地址：
+
+```
+# 1. 从 bt 输出中找到 FP（帧指针，方括号中的值）
+crash> bt
+PID: 1234
+#3 [fffffc09c4f3ab0] schedule_preempt_disable
+#4 [fffffc09c4f3b30] rwsem_down_write_slowpath
+#5 [fffffc09c4f3b90] down_write
+
+# 2. 反汇编调用者，定位锁指针如何传入
+crash> dis -xl down_write
+    mov  x0, x19                # x0 = x19（锁指针）
+    mov  w1, #0x2
+    bl   rwsem_down_write_slowpath
+
+# 3. 反汇编被调者，定位 x19 在哪里压栈
+crash> dis -xl rwsem_down_write_slowpath
+    stp  x20, x19, [sp, #176]   # x19 存在 sp+176
+
+# 4. 从 FP 推算 SP：SP = FP - 0x60（来自 "add x29, sp, #0x60"）
+#    rwsem_down_write_slowpath FP = 0xfffffc09c4f3b30
+#    SP = 0xfffffc09c4f3b30 - 0x60 = 0xfffffc09c4f3ad0
+
+# 5. 读 x19：SP + 176 = 0xfffffc09c4f3b88
+crash> rd 0xfffffc09c4f3b88
+    fffffc09c4f3b88:  fffff80f78b0b00    ← 这就是锁地址！
+
+# 6. 检查锁
+crash> struct rw_semaphore fffff80f78b0b00 -x
+```
+
+**原理**：AArch64 ABI 中 x19-x28 是 callee-saved，被调函数必须先压栈才能使用。从反汇编找到保存位置，就能在栈里读出原值。
+
+> **x86_64 等价方案**：使用 RBP 链 + `bt -f`。注意 `-fomit-frame-pointer` 优化会导致此方法失败，此时改用 `bt -F` 或显式栈帧定位。
+
+### 内存泄露三层诊断法
+
+> **来源**：[Kernel panic 实验室 - Kernel driver 内存泄露问题排查指南](https://mp.weixin.qq.com/s/RER260p6MN5NmymYdyKn0g)
+
+三条独立诊断路径：
+
+```
+# === 第一层：/proc 三件套（读运行系统或捕获信息）===
+# MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
+cat /proc/meminfo
+cat /proc/slabinfo
+cat /proc/buddyinfo
+
+# === 第二层：SLAB 专项（slub_debug）===
+# 启动参数加：slub_debug=u,kmalloc-512
+# 然后读：
+cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
+cat /sys/kernel/debug/slab/kmalloc-512/free_traces
+
+# === 第三层：>8K 的大块分配（page_owner）===
+# SUnreclaim 上涨但 slabinfo 平稳 → kmalloc > 8K 走 alloc_pages 路径
+# 启用 CONFIG_PAGE_OWNER + bootargs 加 page_owner=on
+# 然后：
+echo 1 > /sys/kernel/debug/page_owner/enable
+# 周期性抓 snapshot，对比：
+./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
+./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
+# 对比两份结果，增长的调用栈即为泄露
+
+# === 备选：kmemleak ===
+# CONFIG_DEBUG_KMEMLEAK + bootarg 加 kmemleak=on
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak
+```
+
 ### 链式查询
 
 ```
@@ -236,6 +341,9 @@ crash> list -h <addr> -s dentry.d_name.name
 | `references/advanced-commands.md` | 高级命令详解：list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore 文件格式、ELF 结构、VMCOREINFO |
 | `references/case-studies.md` | 详细调试案例：kernel BUG、死锁、OOM、NULL指针、栈溢出 |
+| `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
+| `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |
+| `references/sources.md` | **新增** 完整的参考资料引用列表（含微信公众号、kernel.org、邮件列表） |
 
 使用方式：
 ```

@@ -748,6 +748,210 @@ Double fault typically occurs when:
 | Slab corruption | crash `kmem -S`, `rd`, `search` | SLUB debug |
 | Interrupt issues | crash `bt`, `struct task_struct` | lockdep |
 | Double fault | crash `bt -v`, `bt -r` | KASAN |
+| Lock blocked (ARM64) | `bt -f`, `dis -xl`, `rd` | stack analysis (this case study) |
+| SLUB UAF | kasan + `kmem -S` | slub_debug=P |
+
+---
+
+## Case 11: ARM64 rwsem Lock Derivation from Stack
+
+> **Source**: [Kernel panic 实验室 - Kernel panic 实战之读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)
+
+### Symptoms
+
+A task is stuck waiting for a read-write semaphore. Watchdog gets blocked, eventually triggering a soft lockup panic.
+
+### Backtrace
+
+```
+#0 schedule_preempt_disable at xxxxxx
+#1 rwsem_down_write_slowpath at xxxxxx
+#2 down_write at xxxxxx
+```
+
+The task cannot acquire the rwsem, watchdog gets blocked, eventually panic.
+
+### Analysis Steps
+
+```console
+# === Step 1: Understand FP (x29) vs SP ===
+# FP (value in [...]) = function's frame pointer, set at entry
+# SP = current stack pointer, changes during function execution
+# rwsem_down_write_slowpath's FP from bt = fffffc09c4f3b30
+
+# === Step 2: Find where lock pointer comes from ===
+crash> dis -xl down_write
+    mov  x0, x19        # x0 = x19 (the rwsem pointer!)
+    mov  w1, #0x2
+    bl   rwsem_down_write_slowpath
+# So x19 holds the rw_semaphore address
+
+# === Step 3: Find where callee saves x19 ===
+crash> dis -xl rwsem_down_write_slowpath
+    stp  x20, x19, [sp, #176]    # x19 saved at sp+176
+    add  x29, sp, #0x60          # FP = SP + 0x60
+# So: SP = FP - 0x60
+#     x19 saved at SP + 176
+
+# === Step 4: Calculate the stack address ===
+# FP = 0xfffffc09c4f3b30
+# SP = 0xfffffc09c4f3b30 - 0x60 = 0xfffffc09c4f3ad0
+# x19 slot = SP + 176 + 8 = 0xfffffc09c4f3ad0 + 0xb8 = 0xfffffc09c4f3b88
+
+# === Step 5: Read x19 from stack ===
+crash> rd fffffc09c4f3b88
+    fffffc09c4f3b88:  fffff80f78b0b00   # ← This is the lock address!
+
+# === Step 6: Inspect the lock ===
+crash> struct rw_semaphore fffff80f78b0b00 -x
+struct rw_semaphore {
+  count = -1,                # -1 = no readers, write-locked
+  owner = 0xffff8800abcde000, # The task holding the write lock
+  wait_list = {
+    next = 0xffff8800f0000120,
+    prev = 0xffff8800f0000120
+  },
+  ...
+}
+
+# === Step 7: Find the owner task ===
+crash> task ffff8800abcde000
+PID: 5678   TASK: ffff8800abcde000  CPU: 2  COMMAND: "writer_thread"
+```
+
+### Root Cause Analysis
+
+- The task is blocked on `rw_semaphore` at `0xfffff80f78b0b00`
+- Owner: PID 5678 (`writer_thread`)
+- Need to check what owner is doing: `bt 5678`
+- If owner is also waiting for another resource: classic ABBA deadlock
+
+### Why This Technique Works
+
+AArch64 ABI defines `x19-x28` as **callee-saved** registers. This means:
+- Caller places argument in `x19` (here: the rwsem pointer)
+- Callee (`rwsem_down_write_slowpath`) must save `x19` on stack before using it
+- Reading the saved value recovers the original argument
+
+This is a **general technique** that works for any function that stores a callee-saved register on the stack.
+
+### x86_64 Equivalent
+
+On x86_64, function arguments are passed in RDI, RSI, RDX, RCX, R8, R9 — but these are **caller-saved** in x86_64 SysV ABI, so they're not preserved across calls.
+
+For x86_64 lock derivation:
+- Use `bt -f` to see function parameters at each frame
+- Or use `dis -l function` to find the parameter source
+- Be aware: with `-fomit-frame-pointer` (common in release builds), manual frame walking may fail
+
+---
+
+## Case 12: SLUB Use-After-Free (Simple and Misalignment Variants)
+
+> **Source**: [Kernel panic 实验室 - Slub use after free 问题讨论](https://mp.weixin.qq.com/s/SmFNmwoz4lr6F7zBi0VQqA)
+
+### Symptoms
+
+```
+kernel BUG at lib/list_debug.c:53!
+or
+slab-out-of-bounds / general protection fault in freelist handling
+```
+
+Panic shows `cpu_slab.freelist` is corrupted with an abnormal value, pointing to invalid memory.
+
+### Two Distinct UAF Scenarios
+
+#### Variant 1: Simple UAF (Same Module)
+
+```
+1. Module A: kmalloc(object M)         # M is now allocated
+2. Module A code 1: kfree(M)            # M returns to freelist
+3. Module A code 2: uses M (UAF!)      # M's freepointer is overwritten with data
+4. Module A code 2: kfree(M) again     # M is double-freed back to freelist
+5. Later: another kmalloc triggers panic
+   because cpu_slab.freelist is now garbage
+```
+
+**Detection**: Only `freelist` field is abnormal, other object data is intact (not heap overflow).
+
+**Fix**:
+```bash
+# Enable KASAN to catch UAF at step 3
+echo 1 > /proc/sys/kernel/kasan_multi_shot
+# Or recompile with CONFIG_KASAN=y
+```
+
+#### Variant 2: Misalignment UAF (Different Modules)
+
+```
+1. Module A: kmalloc(object M)
+2. Module A code 1: kfree(M)         # M returns to freelist
+3. Module B: kmalloc(...) → system returns M to B
+4. Module A code 2: uses M (UAF!)    # B is using M, A clobbers M's freepointer
+5. Module A code 2: kfree(M)         # A frees B's memory, double-freelist
+6. Module B continues using M (already corrupted)
+7. Later: kmalloc triggers panic
+```
+
+**Why it's harder to detect**: KASAN reports UAF on **Module B** (the second user), not Module A (the original bug). B is "victim" — looks like a BUG but root cause is A.
+
+**Fix**: Enhance slub debug to record **multiple trace paths** (alloc + free from both A and B).
+
+### Analysis Steps
+
+```console
+# === Step 1: Check the corrupted slab cache ===
+crash> kmem -i
+                 PAGES        TOTAL      PERCENTAGE
+SLAB            1572864       6 GB        18%
+# ↑ Abnormal SLAB size?
+
+# === Step 2: Find the corrupted cache ===
+crash> kmem -S kmalloc-256
+CACHE    NAME          OBJSIZE  ALLOCATED  TOTAL  SLABS  SSIZE
+ffff88012a000000  kmalloc-256   256       150      200    13    8k
+
+# === Step 3: Inspect the corrupted object ===
+crash> rd 0xffff88012a001000 32
+ffff88012a001000:  0000000000000001 0000000000000002   # Object data OK
+...
+ffff88012a001100:  deadbeefcafebabe 5a5a5a5a5a5a5a5a   # Redzone pattern!
+
+# === Step 4: Find ownership ===
+crash> kmem 0xffff88012a001000
+CACHE: ffff88012a000000  NAME: kmalloc-256
+SLAB:  ffff88012a010000
+OBJECT: 0xffff88012a001000
+
+# === Step 5: Search for poison pattern (Variant 2) ===
+crash> search -k deadbeefcafebabe
+ffff88012a001100: deadbeefcafebabe   # Found in redzone!
+
+# === Step 6: Find process using this memory ===
+crash> foreach vm | grep ffff88012a001
+PID: 5678  TASK: ffff88012b000000  ...  # Module B victim
+```
+
+### Root Cause
+
+- **Variant 1**: Single module double-free → KASAN catches it at first UAF access
+- **Variant 2**: Cross-module A's free corrupts B's active allocation → KASAN reports on B (confusing)
+
+### Prevention
+
+| Method | Effectiveness |
+|--------|--------------|
+| `CONFIG_KASAN=y` | Catches UAF at access time, not just free time |
+| `slub_debug=P` bootarg | Fills freed memory with POISON_FREE, catches UAF on next alloc |
+| `slub_debug=u,kmalloc-N` | Records alloc/free trace for specific caches |
+| Enhanced slub with multi-trace | Records multiple alloc/free paths (Kernel panic 实验室 方案) |
+
+### Key Insight
+
+> **Misalignment UAF** is particularly insidious because the reported "guilty" module is actually the **victim**. Always investigate the **full alloc/free history** of a corrupted object, not just the current owner.
+
+For complete slub_debug flag reference (f/z/p/u/t), see `references/debug-tools-guide.md` §5 (or the soon-to-be-updated section).
 
 ---
 

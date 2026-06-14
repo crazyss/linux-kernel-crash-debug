@@ -210,6 +210,36 @@ crash> set gdb on       # Enter gdb mode
 crash> < commands.txt
 ```
 
+## ARM64 / x86_64 Quick Reference
+
+### Architecture Differences in crash Analysis
+
+| Aspect | x86_64 | ARM64 |
+|--------|--------|-------|
+| crash command | `crash vmlinux vmcore` | `crash_arm64 ... -m ... vmlinux vmcore` |
+| KASLR | VMCOREINFO auto-handled | Must pass `-m kaslr=<offset>` |
+| Virtual address bits | fixed | Must pass `-m vabits_actual=<N>` |
+| Physical base | `phys_base` from VMCOREINFO | Must pass `-m phys_offset=<addr>` |
+| VA-PA offset | `__START_KERNEL_map` | Must pass `-m kimage_voffset=<val>` |
+| Frame pointer | RBP (often optimized away) | FP (x29) explicit |
+| Calling convention | RDI/RSI/RDX/RCX/R8/R9 | X0-X7 |
+
+> **For complete ARM64 address parameter derivation**, see `references/arm64-crash-params.md`.
+> **For kdump end-to-end setup**, see `references/kdump-setup-guide.md`.
+
+### ARM64 Crash Command Template
+
+```bash
+crash_arm64 \
+  -m vabits_actual=39 \
+  -m phys_offset=0x80000000 \
+  -m kimage_voffset=0xffffffc000000000 \
+  -m kaslr=0x0 \
+  vmlinux vmcore
+```
+
+> Default kaslr=0 means KASLR disabled. Adjust based on `/proc/kallsyms` or VMCOREINFO.
+
 ## Typical Debugging Scenarios
 
 ### Kernel BUG Location
@@ -249,6 +279,82 @@ crash> bt -r                  # Raw stack data
 
 ## Advanced Techniques
 
+### Deriving Lock Pointers from Stack Backtrace (ARM64)
+
+> **Source**: [Kernel panic 实验室 - Kernel panic 实战之读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)
+
+When a task is blocked waiting for a lock, you can derive the lock address by reading callee-saved registers from the stack:
+
+```console
+# 1. Find FP (frame pointer) from backtrace
+#    The value in [...] is the FP of that function
+crash> bt
+PID: 1234
+#3 [fffffc09c4f3ab0] schedule_preempt_disable
+#4 [fffffc09c4f3b30] rwsem_down_write_slowpath
+#5 [fffffc09c4f3b90] down_write
+
+# 2. Disassemble the calling function to find where it puts the lock pointer
+crash> dis -xl down_write
+    mov  x0, x19                # x0 = x19 (lock pointer)
+    mov  w1, #0x2
+    bl   rwsem_down_write_slowpath
+
+# 3. Disassemble the callee to find where x19 is saved to stack
+crash> dis -xl rwsem_down_write_slowpath
+    stp  x20, x19, [sp, #176]   # x19 saved at sp+176
+
+# 4. Calculate SP from FP: SP = FP - 0x60 (from "add x29, sp, #0x60")
+#    rwsem_down_write_slowpath FP = 0xfffffc09c4f3b30
+#    SP = 0xfffffc09c4f3b30 - 0x60 = 0xfffffc09c4f3ad0
+
+# 5. Read x19 from stack: SP + 176 = 0xfffffc09c4f3b88
+crash> rd 0xfffffc09c4f3b88
+    fffffc09c4f3b88:  fffff80f78b0b00    ← This is the lock address!
+
+# 6. Inspect the lock
+crash> struct rw_semaphore fffff80f78b0b00 -x
+```
+
+**Why it works**: x19-x28 are callee-saved in AArch64 ABI, so callees must save them on stack before clobbering. By finding where callee saved the register, you can recover the lock address.
+
+> **x86_64 equivalent**: Use RBP chain with `bt -f`. Note that with `-fomit-frame-pointer`, this technique may fail; in that case use `bt -F` or look for explicit stack frames.
+
+### Memory Leak Diagnostic (Three-Layer Check)
+
+> **Source**: [Kernel panic 实验室 - Kernel driver 内存泄露问题排查指南](https://mp.weixin.qq.com/s/RER260p6MN5NmymYdyKn0g)
+
+Three independent paths to diagnose memory leaks:
+
+```console
+# === Layer 1: /proc 三件套 (read from running system or captured info) ===
+# MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
+cat /proc/meminfo
+cat /proc/slabinfo
+cat /proc/buddyinfo
+
+# === Layer 2: SLAB-specific (slub_debug) ===
+# In bootargs: slub_debug=u,kmalloc-512
+# Then read:
+cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
+cat /sys/kernel/debug/slab/kmalloc-512/free_traces
+
+# === Layer 3: >8K allocations (page_owner) ===
+# SUnreclaim rises but slabinfo flat → kmalloc > 8K uses alloc_pages directly
+# Enable CONFIG_PAGE_OWNER + boot with page_owner=on
+# Then:
+echo 1 > /sys/kernel/debug/page_owner/enable
+# Periodic dumps, then diff:
+./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
+./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
+# Compare begin.txt vs end.txt - rising stacks are leaks
+
+# === Alternative: kmemleak ===
+# CONFIG_DEBUG_KMEMLEAK + kmemleak=on bootarg
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak
+```
+
 ### Chained Queries
 
 ```console
@@ -281,6 +387,9 @@ For detailed information, refer to the following reference files:
 | `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
 | `references/case-studies.md` | Debugging cases: kernel BUG, deadlock, OOM, NULL pointer, stack overflow |
 | `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
+| `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
+| `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |
+| `references/sources.md` | **NEW** Complete bibliography of reference materials used to enhance this skill |
 
 Usage:
 ```console
