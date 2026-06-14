@@ -31,10 +31,10 @@ linux-kernel-crash-debug/
 ### Package the skill (full)
 ```bash
 cd linux-kernel-crash-debug
-zip ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md references/*.md scripts/*.sh
+zip -r ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/
 ```
 
-> **Note**: Do NOT include the `LICENSE` file in the `.skill` package. All skills published on ClawHub are licensed under MIT-0 (MIT No Attribution) by default, so the LICENSE file is not needed for upload.
+> **Note**: The `.skill` package is **whitelist-only**. Do NOT include `LICENSE`, `CONTRIBUTING.md`, `.github/`, or any repository metadata. All skills published on ClawHub are licensed under MIT-0 (MIT No Attribution) by default, so the LICENSE file is not needed for upload.
 
 ### Update existing package
 ```bash

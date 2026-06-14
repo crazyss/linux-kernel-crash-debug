@@ -19,7 +19,10 @@ jobs:
       
       - name: Create Skill Package
         run: |
-          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/ CONTRIBUTING.md LICENSE
+          # Whitelist-only packaging: do NOT include LICENSE, CONTRIBUTING.md,
+          # or any .github/ metadata. ClawHub defaults to MIT-0, and the registry
+          # validates the package contents against the skill manifest.
+          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/
           
       - name: Release
         uses: softprops/action-gh-release@v1
