@@ -41,6 +41,31 @@ jobs:
             --prefix="linux-kernel-crash-debug-${TAG}/" \
             -o "linux-kernel-crash-debug-${TAG}.zip" HEAD
 
+      - name: Verify Clean Source Archive
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          # Defence-in-depth: even though .gitattributes drives the
+          # exclusion, a typo there could silently leak metadata. This
+          # step fails the build if any forbidden path appears in the
+          # archive. Keep this list in sync with .gitattributes.
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          ARCHIVE="linux-kernel-crash-debug-${TAG}.zip"
+          FORBIDDEN='\.gitignore$|^\.github/|\.agents/|^[^/]*/LICENSE$|^[^/]*/CONTRIBUTING\.md$|^[^/]*/CHANGELOG\.md$|^[^/]*/CLAUDE\.md$|^[^/]*/README\.md$|^[^/]*/README_CN\.md$'
+          echo "==> Listing files in ${ARCHIVE}:"
+          unzip -Z1 "${ARCHIVE}" | sort
+          echo ""
+          echo "==> Checking for forbidden paths..."
+          if LEAKS=$(unzip -Z1 "${ARCHIVE}" | grep -E "${FORBIDDEN}" || true); [ -n "${LEAKS}" ]; then
+            echo "ERROR: forbidden paths found in source archive:" >&2
+            echo "${LEAKS}" >&2
+            echo "" >&2
+            echo "These paths must be marked 'export-ignore' in .gitattributes." >&2
+            exit 1
+          fi
+          echo "OK: no forbidden paths in ${ARCHIVE}"
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

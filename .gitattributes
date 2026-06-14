@@ -1,11 +1,44 @@
+# ============================================================================
 # Exclude repository metadata from `git archive` outputs.
-# GitHub's auto-generated "Source code (zip/tar.gz)" assets on the
-# Release page are produced by `git archive` and respect these rules.
-# ClawHub consumes SKILL.md / SKILL_CN.md / scripts/ / references/
-# directly and is not affected by this file.
+# ============================================================================
 #
-# The ClawHub skill whitelist already excludes these paths; this file
-# is here so the GitHub Release "Source code" download matches.
+# Why this file exists
+# --------------------
+# GitHub's auto-generated "Source code (zip/tar.gz)" assets on the Release
+# page are produced by `git archive` and respect these rules. Without
+# this file, those archives contained 27 files of repo metadata that
+# were useless to skill consumers (.github/, .agents/, README, LICENSE,
+# CHANGELOG, CLAUDE.md, CONTRIBUTING.md, .gitignore). This file ensures
+# the GitHub Release download matches the curated `linux-kernel-crash-
+# debug.skill` artifact produced by release.yml.
+#
+# Why these paths are NOT in the skill (but ARE in the repo)
+# ----------------------------------------------------------
+# These paths remain in the repository for the maintainer / contributors:
+#
+#   - README.md / README_CN.md     GitHub project landing pages
+#   - CHANGELOG.md                 version history (humans)
+#   - CONTRIBUTING.md              contribution guidelines (humans)
+#   - LICENSE                      GitHub repo metadata
+#   - CLAUDE.md                    guidance for Claude Code in this repo
+#   - .github/                     GitHub platform configuration
+#   - .agents/rules/               Claude Code rules for maintainers
+#                                  (NOT for skill consumers - they install
+#                                  to a separate directory and never see
+#                                  these rules)
+#
+# Skill consumers get only: SKILL.md, SKILL_CN.md, scripts/, references/.
+# SKILL.md's "See CONTRIBUTING.md" link points to the GitHub URL
+# (https://github.com/...), not a relative path, so excluding the local
+# file does not break that reference.
+#
+# Maintenance
+# -----------
+# If you add a new file that should stay in the repo but NOT in the
+# published skill, add an `export-ignore` line below. release.yml has a
+# `Verify Clean Source Archive` step that fails the build if any of the
+# paths below accidentally leak into the archive.
+# ============================================================================
 
 .gitignore             export-ignore
 .github/**             export-ignore
