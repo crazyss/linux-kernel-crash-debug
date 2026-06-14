@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-06-14
+
+### Fixed
+- **GitHub Release "Source code" archive leaked 27 repository metadata files.** The auto-generated `<tag>.zip` on the Release page was built by `git archive` and shipped `.github/`, `.agents/`, `.gitignore`, `LICENSE`, `CONTRIBUTING.md`, `CHANGELOG.md`, `CLAUDE.md`, and the two `README*.md` files alongside the skill content.
+  - Added `.gitattributes` with `export-ignore` for those paths so `git archive` skips them.
+  - Added a `Create Clean Source Archive` step in `release.yml` that explicitly builds a clean `<tag>.zip` via `git archive` and uploads it as a release asset (defence in depth in case the auto-generated asset ever changes behavior).
+  - Added a `Verify Clean Source Archive` step that inspects the produced zip and fails the build if any of the forbidden paths reappear, catching future `.gitattributes` regressions early.
+- `SKILL.md` / `SKILL_CN.md`: bumped `version: 1.3.1` → `1.3.2` to match this release.
+
+### Notes
+- These paths remain in the repository (for maintainers and the GitHub project page) but are excluded from the published skill artifacts: `README.md`, `README_CN.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`, `CLAUDE.md`, `.github/`, `.agents/`. The `SKILL.md` reference to `CONTRIBUTING.md` uses a `https://github.com/...` URL, so the local file exclusion does not break that link.
+- Skill consumers see exactly the same 13 files in both the `.skill` package and the new `<tag>.zip` source archive.
+
 ## [1.3.1] - 2026-06-14
 
 ### Changed

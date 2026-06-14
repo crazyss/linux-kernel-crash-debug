@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.3.1
+version: 1.3.2
 description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
 metadata:
   openclaw:
