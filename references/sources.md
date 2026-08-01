@@ -59,7 +59,7 @@
 
 ### 2.2 微信公众号：Kernel panic 实验室（Herbert）
 
-> **特别说明**：以下 7 篇文章来自一线内核工程师 Herbert 的「Kernel panic 实验室」公众号和「Linux 内核之旅」公众号。所有内容均为实战经验总结，具有很高的参考价值。
+> **特别说明**：以下 8 篇文章来自一线内核工程师 Herbert 的「Kernel panic 实验室」公众号和「Linux 内核之旅」公众号。所有内容均为实战经验总结，具有很高的参考价值。
 
 - **[内核调试工具（一）-Kdump](https://mp.weixin.qq.com/s/Nd2Ral3IyqfV0Aa-ZkEanQ)**
   - 作者：zhangskd（Linux 内核之旅）
@@ -95,6 +95,11 @@
   - 作者：Herbert
   - 原始缓存：`.firecrawl/wechat-7.md`
   - 内容：从栈回溯推导 x19→rwsem 地址，FP/x29 与 SP 关系，ARM64 调用约定
+
+- **[Kernel panic之如何通过汇编定位mutex lock指针](https://mp.weixin.qq.com/s/HueZ8rFiOeZ1cwZK1XPHww)**
+  - 作者：Herbert
+  - 原始缓存：`.firecrawl/weixin-HueZ8rFiOeZ1cwZK1XPHww.md`
+  - 内容：通过 `adrp/add` 或栈中保存的 x19 恢复 mutex 地址，清除 `owner.counter` 低 3 位后定位持锁 task
 
 ### 2.3 crash-utility 邮件列表
 
@@ -161,11 +166,11 @@
 |------|------|------|
 | 官方文档（kernel.org / Oracle） | 4 | ✅ 已抓取 |
 | 经典 IBM/技术博客镜像 | 5 | ✅ 关键内容已转述 |
-| 微信公众号实战 | 7 | ✅ 全部抓取（7 篇 Kernel panic 实验室 + Linux 内核之旅） |
+| 微信公众号实战 | 8 | ✅ 全部抓取（8 篇 Kernel panic 实验室 + Linux 内核之旅） |
 | crash-utility 邮件列表 | 1 | ✅ 已抓取 |
 | 技术问答（StackOverflow） | 2 | ✅ 已抓取 |
 | 实战案例（Red Hat / NVIDIA） | 2 | ✅ 已抓取 |
-| **合计** | **21** | |
+| **合计** | **22** | |
 
 ---
 
@@ -173,7 +178,7 @@
 
 特别感谢以下贡献者：
 
-- **Herbert**（Kernel panic 实验室公众号）— 提供了 6 篇高价值的 ARM64 内核调试实战文章
+- **Herbert**（Kernel panic 实验室公众号）— 提供了 7 篇高价值的 ARM64 内核调试实战文章
 - **zhangskd**（Linux 内核之旅公众号）— 提供了 kdump 系列文章
 - **Dave Anderson**、**Alexandr Terekhov** 等 crash-utility 维护者 — 维护了高质量的 crash 工具和邮件列表
 - **Baoquan He**（Red Hat）— 编写了官方 ARM64 kdump 文档

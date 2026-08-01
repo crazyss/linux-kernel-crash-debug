@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
 version: 1.3.2
-description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
+description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, mutex ownership, ARM64 lock-pointer recovery, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
 metadata:
   openclaw:
     requires:
@@ -284,44 +284,34 @@ crash> bt -r                  # Raw stack data
 
 ## Advanced Techniques
 
-### Deriving Lock Pointers from Stack Backtrace (ARM64)
+### Recovering Lock Pointers and Mutex Owners (ARM64)
 
-> **Source**: [Kernel panic 实验室 - Kernel panic 实战之读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)
+> **Sources**: [mutex lock pointer](https://mp.weixin.qq.com/s/HueZ8rFiOeZ1cwZK1XPHww) and [rwsem lock derivation](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw), Kernel Panic Lab.
 
-When a task is blocked waiting for a lock, you can derive the lock address by reading callee-saved registers from the stack:
+When a task sleeps in `mutex_lock()` or a rwsem slow path, trace the first ARM64 argument (`x0`) at the call site:
 
 ```console
-# 1. Find FP (frame pointer) from backtrace
-#    The value in [...] is the FP of that function
-crash> bt
-PID: 1234
-#3 [fffffc09c4f3ab0] schedule_preempt_disable
-#4 [fffffc09c4f3b30] rwsem_down_write_slowpath
-#5 [fffffc09c4f3b90] down_write
+# Path A: a global lock is constructed directly
+    adrp x0, 0xffffffc00ac1e000
+    add  x0, x0, #0x7f0         # lock = page + offset
+    bl   mutex_lock
 
-# 2. Disassemble the calling function to find where it puts the lock pointer
-crash> dis -xl down_write
-    mov  x0, x19                # x0 = x19 (lock pointer)
-    mov  w1, #0x2
-    bl   rwsem_down_write_slowpath
+# Path B: the caller passes a callee-saved register
+    mov  x0, x19                # lock pointer is the saved x19 value
+    bl   mutex_lock
+# Find the exact "add x29, sp, #N" and "stp/str ..., x19, [sp,#M]",
+# derive SP from the frame pointer, then read the x19 stack slot with rd.
 
-# 3. Disassemble the callee to find where x19 is saved to stack
-crash> dis -xl rwsem_down_write_slowpath
-    stp  x20, x19, [sp, #176]   # x19 saved at sp+176
-
-# 4. Calculate SP from FP: SP = FP - 0x60 (from "add x29, sp, #0x60")
-#    rwsem_down_write_slowpath FP = 0xfffffc09c4f3b30
-#    SP = 0xfffffc09c4f3b30 - 0x60 = 0xfffffc09c4f3ad0
-
-# 5. Read x19 from stack: SP + 176 = 0xfffffc09c4f3b88
-crash> rd 0xfffffc09c4f3b88
-    fffffc09c4f3b88:  fffff80f78b0b00    ← This is the lock address!
-
-# 6. Inspect the lock
-crash> struct rw_semaphore fffff80f78b0b00 -x
+crash> struct mutex <lock_addr> -x
+# mutex.owner packs flags into its low 3 bits on common kernels:
+# owner_task = owner.counter & ~0x7
+crash> struct task_struct <owner_task>
+crash> bt <owner_pid>
 ```
 
-**Why it works**: x19-x28 are callee-saved in AArch64 ABI, so callees must save them on stack before clobbering. By finding where callee saved the register, you can recover the lock address.
+`stp x20, x19, [sp,#32]` saves `x20` at `sp+32` and `x19` at `sp+40`. Never reuse example offsets blindly: derive them from the vmcore's matching `vmlinux`. Verify the mutex layout and owner flag definitions against the analyzed kernel.
+
+> For exact FP/SP arithmetic, `stp` slot ordering, owner masking, and failure checks, read `references/arm64-lock-analysis.md`. For a complete rwsem example, read Case 11 in `references/case-studies.md`.
 
 > **x86_64 equivalent**: Use RBP chain with `bt -f`. Note that with `-fomit-frame-pointer`, this technique may fail; in that case use `bt -F` or look for explicit stack frames.
 
@@ -394,6 +384,7 @@ For detailed information, refer to the following reference files:
 | `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
 | `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
 | `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |
+| `references/arm64-lock-analysis.md` | ARM64 assembly/stack recovery of mutex and rwsem pointers, plus mutex owner decoding |
 | `references/sources.md` | **NEW** Complete bibliography of reference materials used to enhance this skill |
 
 Usage:

@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
 version: 1.3.2
-description: 使用 crash 工具和内存调试工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因、KASAN、Kprobes、Kmemleak、内存损坏、越界访问、释放后使用、内存泄漏检测时，使用此 skill。
+description: 使用 crash 工具和内存调试工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因、mutex owner、ARM64 锁指针反推、KASAN、Kprobes、Kmemleak、内存损坏、越界访问、释放后使用、内存泄漏检测时，使用此 skill。
 metadata:
   openclaw:
     requires:
@@ -240,43 +240,34 @@ crash> bt -r                  # 原始栈数据
 
 ## 高级技巧
 
-### 从栈回溯推导锁指针（ARM64 专用）
+### 从汇编和栈帧恢复锁指针与 mutex owner（ARM64）
 
-> **来源**：[Kernel panic 实验室 - Kernel panic 实战之读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)
+> **来源**：[mutex lock 指针定位](https://mp.weixin.qq.com/s/HueZ8rFiOeZ1cwZK1XPHww)与[读写锁推导](https://mp.weixin.qq.com/s/szDQ9wOJDwcWo2AStiikPw)，Kernel Panic Lab。
 
-当任务阻塞在某个锁上时，可以通过读取栈中的 callee-saved 寄存器反推锁地址：
+任务阻塞在 `mutex_lock()` 或 rwsem 慢路径时，先在调用点追踪 ARM64 第一个参数 `x0`：
 
 ```
-# 1. 从 bt 输出中找到 FP（帧指针，方括号中的值）
-crash> bt
-PID: 1234
-#3 [fffffc09c4f3ab0] schedule_preempt_disable
-#4 [fffffc09c4f3b30] rwsem_down_write_slowpath
-#5 [fffffc09c4f3b90] down_write
+# 路径一：直接构造全局锁地址
+    adrp x0, 0xffffffc00ac1e000
+    add  x0, x0, #0x7f0         # lock = 页基址 + 页内偏移
+    bl   mutex_lock
 
-# 2. 反汇编调用者，定位锁指针如何传入
-crash> dis -xl down_write
-    mov  x0, x19                # x0 = x19（锁指针）
-    mov  w1, #0x2
-    bl   rwsem_down_write_slowpath
+# 路径二：调用者通过 callee-saved 寄存器传参
+    mov  x0, x19                # 锁指针就是栈中保存的 x19
+    bl   mutex_lock
+# 从实际反汇编找到 "add x29, sp, #N" 和 "stp/str ..., x19, [sp,#M]"，
+# 由 FP 反推 SP，再用 rd 读取 x19 对应的栈槽。
 
-# 3. 反汇编被调者，定位 x19 在哪里压栈
-crash> dis -xl rwsem_down_write_slowpath
-    stp  x20, x19, [sp, #176]   # x19 存在 sp+176
-
-# 4. 从 FP 推算 SP：SP = FP - 0x60（来自 "add x29, sp, #0x60"）
-#    rwsem_down_write_slowpath FP = 0xfffffc09c4f3b30
-#    SP = 0xfffffc09c4f3b30 - 0x60 = 0xfffffc09c4f3ad0
-
-# 5. 读 x19：SP + 176 = 0xfffffc09c4f3b88
-crash> rd 0xfffffc09c4f3b88
-    fffffc09c4f3b88:  fffff80f78b0b00    ← 这就是锁地址！
-
-# 6. 检查锁
-crash> struct rw_semaphore fffff80f78b0b00 -x
+crash> struct mutex <lock_addr> -x
+# 常见内核的 mutex.owner 低 3 位是状态标志：
+# owner_task = owner.counter & ~0x7
+crash> struct task_struct <owner_task>
+crash> bt <owner_pid>
 ```
 
-**原理**：AArch64 ABI 中 x19-x28 是 callee-saved，被调函数必须先压栈才能使用。从反汇编找到保存位置，就能在栈里读出原值。
+`stp x20, x19, [sp,#32]` 把 `x20` 保存到 `sp+32`，把 `x19` 保存到 `sp+40`。不要照搬示例偏移；必须使用 vmcore 匹配的 `vmlinux` 重新推导，并核对当前内核的 mutex 布局和 owner flag 定义。
+
+> FP/SP 精确计算、`stp` 槽位顺序、owner mask 和失败检查见 `references/arm64-lock-analysis.md`；完整 rwsem 案例见 `references/case-studies.md` Case 11。
 
 > **x86_64 等价方案**：使用 RBP 链 + `bt -f`。注意 `-fomit-frame-pointer` 优化会导致此方法失败，此时改用 `bt -F` 或显式栈帧定位。
 
@@ -348,6 +339,7 @@ crash> list -h <addr> -s dentry.d_name.name
 | `references/case-studies.md` | 详细调试案例：kernel BUG、死锁、OOM、NULL指针、栈溢出 |
 | `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
 | `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |
+| `references/arm64-lock-analysis.md` | ARM64 mutex/rwsem 锁指针的汇编与栈恢复，以及 mutex owner 解码 |
 | `references/sources.md` | **新增** 完整的参考资料引用列表（含微信公众号、kernel.org、邮件列表） |
 
 使用方式：
