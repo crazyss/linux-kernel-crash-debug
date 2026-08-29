@@ -78,10 +78,18 @@ case "$MACRO" in
     triage)
         echo "=== [TRIAGE: SYSTEM INFO] ==="
         run_crash "sys"
+        echo "=== [TRIAGE: HIGH-SIGNAL EVENT INDEX] ==="
+        run_crash "log" | grep -E -i \
+            'BUG:|Oops:|panic|KASAN:|KFENCE:|KCSAN:|lockdep|soft lockup|hard LOCKUP|hung task|Out of memory|oom-kill|Machine check|MCE:|SError|watchdog' \
+            | head -n 120
         echo "=== [TRIAGE: KERNEL LOG (Last 100 lines)] ==="
         run_crash "log" | tail -n 100
         echo "=== [TRIAGE: PANIC BACKTRACE] ==="
         run_crash "bt"
+        echo "=== [TRIAGE: ACTIVE CPU BACKTRACES] ==="
+        run_and_truncate "bt -a"
+        echo "=== [TRIAGE: LOADED MODULES] ==="
+        run_and_truncate "mod"
         ;;
     flow-deadlock)
         echo "=== [DEADLOCK: UNINTERRUPTIBLE TASKS] ==="

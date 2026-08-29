@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.3.2
-description: Debug Linux kernel crashes using the crash utility and memory debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, analyzing kernel crash dump files, using crash commands, locating root causes of kernel issues, mutex ownership, ARM64 lock-pointer recovery, KASAN, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, memory leak detection.
+version: 1.4.0
+description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
     requires:
@@ -57,23 +57,33 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 ### Core Debugging Workflow
 
 ```console
-1. crash> sys              # Confirm panic reason
-2. crash> log              # View kernel log
-3. crash> bt               # Analyze call stack
-4. crash> struct <type>    # Inspect data structures
-5. crash> kmem <addr>      # Memory analysis
+0. Preserve checksums, vmcore-dmesg, build IDs, modules, config, and command line
+1. crash> sys              # Validate release/build and panic context
+2. crash> log              # Find the FIRST anomaly, not only the last panic
+3. crash> bt / bt -a       # Compare panic task with all active CPUs
+4. crash> mod              # Confirm faulting module symbols are available
+5. crash> struct / kmem    # Test a specific object-lifetime hypothesis
+6. Search upstream and verify good/bad kernels before claiming a regression
 ```
+
+Read `references/evidence-first-workflow.md` before deep analysis. It defines
+the evidence-quality gates, failure-type routing, hypothesis ledger, tool
+escalation rules, and root-cause report format. Never equate the panic task,
+fault site, corruption site, and root cause without supporting evidence.
 
 ## 🤖 Agent Execution Directives
 If you are an AI/Agent using this skill, **do not invoke `crash` interactively** as it will block your subshell.
 1. Use the bundled wrapper `./scripts/agent-crash.sh` which maps precisely to the workflows below but safely truncates outputs:
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - Safely runs initial `sys`, `log`, and `bt`.
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - Runs `sys`, a high-signal log index, panic/all-CPU backtraces, and module inventory.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - Top 15 memory checks.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - Pulls UN task stacks.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Assembly regression.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - Pattern match memory poisons.
 2. **Fallback Strategy**: If macros don't solve the issue, fall back to basic primitives manually: `./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff880123456780"`.
 3. Check `references/agentic-heuristics.md` for extended expert methodologies.
+4. Follow `references/evidence-first-workflow.md`: report symbol/dump quality,
+   identify the earliest anomaly, keep competing hypotheses, and attach a
+   confidence level plus a disproof test to the conclusion.
 
 ## Prerequisites
 
@@ -221,18 +231,18 @@ crash> < commands.txt
 
 | Aspect | x86_64 | ARM64 |
 |--------|--------|-------|
-| crash command | `crash vmlinux vmcore` | `crash_arm64 ... -m ... vmlinux vmcore` |
-| KASLR | VMCOREINFO auto-handled | Must pass `-m kaslr=<offset>` |
-| Virtual address bits | fixed | Must pass `-m vabits_actual=<N>` |
-| Physical base | `phys_base` from VMCOREINFO | Must pass `-m phys_offset=<addr>` |
-| VA-PA offset | `__START_KERNEL_map` | Must pass `-m kimage_voffset=<val>` |
+| crash command | `crash vmlinux vmcore` | `crash vmlinux vmcore`; add `-m` only as a recovery path |
+| KASLR | Usually auto-handled from VMCOREINFO | Usually auto-handled; derive `-m kaslr=<offset>` only for raw/damaged metadata |
+| Virtual address bits | fixed for the analyzed build | VMCOREINFO first; `-m vabits_actual=<N>` is a fallback |
+| Physical base | `phys_base` from VMCOREINFO | VMCOREINFO first; `-m phys_offset=<addr>` is a fallback |
+| VA-PA offset | `__START_KERNEL_map` | VMCOREINFO first; `-m kimage_voffset=<val>` is a fallback |
 | Frame pointer | RBP (often optimized away) | FP (x29) explicit |
 | Calling convention | RDI/RSI/RDX/RCX/R8/R9 | X0-X7 |
 
 > **For complete ARM64 address parameter derivation**, see `references/arm64-crash-params.md`.
 > **For kdump end-to-end setup**, see `references/kdump-setup-guide.md`.
 
-### ARM64 Crash Command Template
+### ARM64 Raw/Damaged-Dump Fallback Template
 
 ```bash
 crash_arm64 \
@@ -243,7 +253,9 @@ crash_arm64 \
   vmlinux vmcore
 ```
 
-> Default kaslr=0 means KASLR disabled. Adjust based on `/proc/kallsyms` or VMCOREINFO.
+> First try `crash vmlinux vmcore`. Use explicit values only when VMCOREINFO is
+> absent/damaged or the input is raw RAM. `kaslr=0` means KASLR was disabled;
+> never assume that value or reuse another boot's parameters.
 
 ## Typical Debugging Scenarios
 
@@ -385,6 +397,7 @@ For detailed information, refer to the following reference files:
 | `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
 | `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |
 | `references/arm64-lock-analysis.md` | ARM64 assembly/stack recovery of mutex and rwsem pointers, plus mutex owner decoding |
+| `references/evidence-first-workflow.md` | **NEW** Evidence gates, timeline reconstruction, failure routing, tool escalation, regression verification, report template |
 | `references/sources.md` | **NEW** Complete bibliography of reference materials used to enhance this skill |
 
 Usage:

@@ -34,6 +34,41 @@
   - 原始缓存：`.firecrawl/x86-search-3.md`
   - 内容：crashkernel 三种语法的清晰解释（`size`/`size@offset`/`size,high+size,low`），kdumpctl estimate 用法
 
+### 1.3 证据优先诊断与现代调试工具
+
+以下资料用于 `references/evidence-first-workflow.md` 和更新后的
+`references/debug-tools-guide.md`。本轮通过 Firecrawl 检索并抓取，以当前
+kernel.org 文档为主：
+
+- **[Bug hunting](https://docs.kernel.org/admin-guide/bug-hunting.html)**
+  - Oops 保存路径、`decode_stacktrace.sh`、GDB 定位和 kdump 证据采集
+- **[Tainted kernels](https://docs.kernel.org/admin-guide/tainted-kernels.html)**
+  - taint 的持久语义、`kernel-chktaint` 以及各位标志的诊断意义
+- **[Ramoops oops/panic logger](https://docs.kernel.org/admin-guide/ramoops.html)**
+  - kdump 失败或机器直接复位时，通过持久 RAM 保存 panic/oops 的方案
+- **[Magic SysRq](https://docs.kernel.org/admin-guide/sysrq.html)**
+  - `l/w/d/m` 现场采集与 `c` 主动触发 crashdump 的官方语义
+- **[Softlockup and hardlockup detectors](https://docs.kernel.org/admin-guide/lockup-watchdogs.html)**
+  - soft/hard lockup 的不同检测机制、阈值和 panic 控制
+- **[KASAN](https://docs.kernel.org/dev-tools/kasan.html)**
+  - Generic、ARM64 SW_TAGS/HW_TAGS 三种模式及当前启动参数
+- **[KFENCE](https://docs.kernel.org/dev-tools/kfence.html)**
+  - 面向生产环境的低开销采样式 OOB/UAF/invalid-free 检测
+- **[KCSAN](https://docs.kernel.org/dev-tools/kcsan.html)**
+  - 基于 watchpoint sampling 的数据竞争检测和 unknown-origin 限制
+- **[Kmemleak](https://docs.kernel.org/dev-tools/kmemleak.html)**
+  - 扫描算法、clear/scan 用法与 false positive/negative 限制
+- **[Lockdep design](https://docs.kernel.org/locking/lockdep-design.html)**
+  - lock class、dependency chain、观测范围和故障排查
+- **[GDB kernel debugging helpers](https://docs.kernel.org/dev-tools/gdb-kernel-debugging.html)**
+  - `vmlinux-gdb.py` 与内核 GDB helper 的官方用法
+- **[Verifying bugs and bisecting regressions](https://docs.kernel.org/admin-guide/verify-bugs-and-bisect-regressions.html)**
+  - good/bad endpoint 验证、同配置复现和上游回归二分流程
+- **[drgn User Guide](https://drgn.readthedocs.io/en/latest/user_guide.html)**
+  - 对 live kernel/vmcore 进行可重复 Python 结构遍历和 stack trace 分析
+- **[RHEL 10: Analyzing a core dump](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_monitoring_and_updating_the_kernel/analyzing-a-core-dump)**
+  - 发行版 debuginfo、partial dump 和 `vmcore-dmesg.txt` 的工程实践
+
 ---
 
 ## 2. 经典技术文章 (Articles)
@@ -164,13 +199,14 @@
 
 | 类别 | 数量 | 状态 |
 |------|------|------|
-| 官方文档（kernel.org / Oracle） | 4 | ✅ 已抓取 |
+| 官方文档（kernel.org / Oracle / Red Hat） | 17 | ✅ 已抓取 |
+| 上游工具文档（crash / drgn） | 2 | ✅ 已抓取 |
 | 经典 IBM/技术博客镜像 | 5 | ✅ 关键内容已转述 |
 | 微信公众号实战 | 8 | ✅ 全部抓取（8 篇 Kernel panic 实验室 + Linux 内核之旅） |
 | crash-utility 邮件列表 | 1 | ✅ 已抓取 |
 | 技术问答（StackOverflow） | 2 | ✅ 已抓取 |
 | 实战案例（Red Hat / NVIDIA） | 2 | ✅ 已抓取 |
-| **合计** | **22** | |
+| **合计** | **37** | |
 
 ---
 

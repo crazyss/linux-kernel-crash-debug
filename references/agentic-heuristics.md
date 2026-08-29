@@ -14,6 +14,11 @@ Interactive commands (like a plain `crash` session REPL) will cause the Agent's 
 ./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff880123456789 128"
 ```
 
+Before interpreting output, follow `evidence-first-workflow.md`: record dump
+completeness, kernel/module build provenance, taint, and the earliest anomaly.
+The wrapper limits output volume; it does not make mismatched symbols or a
+filtered-out address trustworthy.
+
 ## 2. Upstream Verification (The Hacker Instinct)
 Before diving into assembly, a seasoned kernel developer checks for known fixes.
 - If `scripts/agent-crash.sh triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and perform a quick web search or `git grep` on the upstream Linux kernel to see if this has already been fixed. Do not reinvent the wheel if a known CVE/Bugzilla is present.
@@ -22,11 +27,12 @@ Before diving into assembly, a seasoned kernel developer checks for known fixes.
 
 The wrapper provides tailored APIs for standard debugging methodologies defined in `case-studies.md`.
 
-* **Triage / Base Panic**: `scripts/agent-crash.sh -k vmlinux triage`
-  Provides a clean `sys` environment, tail of the log, and crash backtrace.
-* **Deadlock Analysis**: `scripts/agent-crash.sh -k vmlinux flow-deadlock`
+* **Triage / Base Panic**: `scripts/agent-crash.sh -k vmlinux -c vmcore triage`
+  Provides `sys`, a high-signal event index, log tail, panic/all-CPU backtraces,
+  and the loaded-module inventory.
+* **Deadlock Analysis**: `scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock`
   Automatically extracts all UN (Uninterruptible) task backtraces filtering out idle CPU noise.
-* **OOM Analysis**: `scripts/agent-crash.sh -k vmlinux flow-oom`
+* **OOM Analysis**: `scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom`
   Automatically runs complex sorts to deliver the explicitly top 15 memory-hogging processes and SLAB caches without overflowing the Agent's context.
 
 ## 4. The "Linus" Method: Reverse Engineering 
@@ -46,6 +52,21 @@ When inspecting a corrupted pointer or structure:
 ## 6. Fallback Strategy
 If all high-level macros fail to pinpoint the kernel anomaly, the Agent **must fall back to manual raw commands**.
 - Use `./scripts/agent-crash.sh -k vmlinux run "<command>"` for primitives.
-- Use `rd <addr> <count>` for manual stack unwinding if `bt` is broken (Double Fauts).
+- Use `rd <addr> <count>` for manual stack unwinding if `bt` is broken (double faults).
 - Use `list -h <start>` to manually walk broken structures.
 - Remember the output is truncated to 400 lines by the wrapper for your safety. Do not request massively broad sweeps.
+
+## 7. Required Conclusion Format
+
+An agent conclusion must distinguish:
+
+1. the **fault/detection site**;
+2. the suspected **corruption or stall origin**;
+3. the defensible **root cause**;
+4. missing evidence and dump/filter limitations;
+5. a competing hypothesis and its disproof test;
+6. confidence (`high`, `medium`, or `low`).
+
+If only the first item is known, report a localization result rather than a
+root cause. Never turn an unresolved pointer value or an unavailable page into
+a confident causal claim.

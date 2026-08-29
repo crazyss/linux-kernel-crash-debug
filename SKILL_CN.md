@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.3.2
-description: 使用 crash 工具和内存调试工具调试 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore 分析、内核转储调试、crash utility、内核 oops 调试、分析内核崩溃转储文件、使用 crash 命令、定位内核问题根因、mutex owner、ARM64 锁指针反推、KASAN、Kprobes、Kmemleak、内存损坏、越界访问、释放后使用、内存泄漏检测时，使用此 skill。
+version: 1.4.0
+description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
     requires:
@@ -56,24 +56,32 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 
 ### 核心调试流程
 
+```console
+0. 保存校验和、vmcore-dmesg、build ID、模块、config 和内核命令行
+1. crash> sys              # 校验 release/build 与 panic 上下文
+2. crash> log              # 找最早异常，而不是只看最后一次 panic
+3. crash> bt / bt -a       # 对比 panic task 与所有活动 CPU
+4. crash> mod              # 确认故障模块符号完整
+5. crash> struct / kmem    # 验证具体的对象生命周期假设
+6. 搜索上游，并验证 good/bad 内核后再判定回归
 ```
-1. crash> sys              # 确认 panic 原因
-2. crash> log              # 查看内核日志
-3. crash> bt               # 分析调用栈
-4. crash> struct <type>    # 检查数据结构
-5. crash> kmem <addr>      # 内存分析
-```
+
+深入分析前先阅读 `references/evidence-first-workflow.md`。其中定义了证据
+质量门控、故障路由、假设账本、工具升级规则和根因报告模板。没有直接证据
+时，不要把 panic task、故障点、破坏点和根因当成同一件事。
 
 ## 🤖 Agent Execution Directives (Agent 专用执行戒律)
 如果您是使用本技能的 AI/Agent，**绝对不要尝试开启交互式的 `crash` 会话**（会导致沙盒阻塞和上下文溢出）。
 1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，它完美映射了下方的调试流程并自带长输出断路器：
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 三合板基础环境探伤 (`sys`, `log`, `bt`)。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 输出 `sys`、高信号日志索引、panic/全 CPU 栈和模块清单。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 获取崩溃反汇编与现场寄存器值的组合视图。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 特征码探测（检测 UAF、SLUB 等常见特征）。
 2. **底层降级策略 (Fallback Strategy)**：如果上面的宏指令排查不出结果，请通过 wrapper 执行标准内核调试命令：`./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff8800..."`。
 3. 如果您需要更高的专家视角，请查阅 `references/agentic-heuristics.md`（高阶内核黑客视角策略）。
+4. 遵循 `references/evidence-first-workflow.md`：报告符号/转储质量，定位最早
+   异常，保留竞争假设，并为结论给出置信度与证伪方法。
 
 ## 前置要求
 
@@ -177,18 +185,18 @@ crash> < commands.txt
 
 | 维度 | x86_64 | ARM64 |
 |------|--------|-------|
-| crash 命令 | `crash vmlinux vmcore` | `crash_arm64 ... -m ... vmlinux vmcore` |
-| KASLR | VMCOREINFO 自动处理 | 必须传 `-m kaslr=<偏移>` |
-| 虚拟地址位宽 | 固定 | 必须传 `-m vabits_actual=<位数>` |
-| 物理基地址 | `phys_base`（VMCOREINFO）| 必须传 `-m phys_offset=<地址>` |
-| VA-PA 偏移 | `__START_KERNEL_map` 固定映射 | 必须传 `-m kimage_voffset=<值>` |
+| crash 命令 | `crash vmlinux vmcore` | 先用 `crash vmlinux vmcore`，恢复场景再加 `-m` |
+| KASLR | 通常由 VMCOREINFO 自动处理 | 通常自动处理；raw/元数据损坏时才推导 `-m kaslr=<偏移>` |
+| 虚拟地址位宽 | 对当前构建固定 | VMCOREINFO 优先；`-m vabits_actual=<位数>` 是回退 |
+| 物理基地址 | `phys_base`（VMCOREINFO）| VMCOREINFO 优先；`-m phys_offset=<地址>` 是回退 |
+| VA-PA 偏移 | `__START_KERNEL_map` 固定映射 | VMCOREINFO 优先；`-m kimage_voffset=<值>` 是回退 |
 | 帧指针 | RBP（常被 `-fomit-frame-pointer` 优化掉）| FP (x29) 显式保存 |
 | 调用约定 | RDI/RSI/RDX/RCX/R8/R9 | X0-X7 |
 
 > **完整的 ARM64 地址参数推导**，见 `references/arm64-crash-params.md`
 > **kdump 端到端配置手册**，见 `references/kdump-setup-guide.md`
 
-### ARM64 Crash 命令模板
+### ARM64 raw/元数据损坏转储的回退模板
 
 ```bash
 crash_arm64 \
@@ -199,7 +207,9 @@ crash_arm64 \
   vmlinux vmcore
 ```
 
-> 默认 `kaslr=0` 表示 KASLR 关闭。可根据 `/proc/kallsyms` 或 VMCOREINFO 调整。
+> 首先尝试 `crash vmlinux vmcore`。仅在 VMCOREINFO 缺失/损坏或输入为 raw
+> RAM 时显式传值；`kaslr=0` 表示 KASLR 确实关闭，不能默认假设，更不能复用
+> 另一次启动的参数。
 
 ## 典型调试场景
 
@@ -340,6 +350,7 @@ crash> list -h <addr> -s dentry.d_name.name
 | `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
 | `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |
 | `references/arm64-lock-analysis.md` | ARM64 mutex/rwsem 锁指针的汇编与栈恢复，以及 mutex owner 解码 |
+| `references/evidence-first-workflow.md` | **新增** 证据门控、时间线、故障路由、工具升级、回归验证和根因报告模板 |
 | `references/sources.md` | **新增** 完整的参考资料引用列表（含微信公众号、kernel.org、邮件列表） |
 
 使用方式：

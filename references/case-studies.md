@@ -878,7 +878,7 @@ Panic shows `cpu_slab.freelist` is corrupted with an abnormal value, pointing to
 **Fix**:
 ```bash
 # Enable KASAN to catch UAF at step 3
-echo 1 > /proc/sys/kernel/kasan_multi_shot
+kasan_multi_shot             # kernel boot parameter for repeated reports
 # Or recompile with CONFIG_KASAN=y
 ```
 

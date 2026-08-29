@@ -1,12 +1,12 @@
 # ARM64 Crash 命令关键地址参数详解
 
-> **本文档专门解析 ARM64 平台 `crash` 工具启动时需要传递的地址参数**。这些参数是 x86_64 不需要但 ARM64 必须显式提供的。
+> **本文档解析 ARM64 平台在 raw RAM、VMCOREINFO 缺失/损坏或旧工具无法自动解析时，`crash` 需要的地址参数**。标准 kdump vmcore 应先尝试 `crash vmlinux vmcore`，因为现代转储会通过 VMCOREINFO 携带这些布局信息。
 >
 > **核心来源**：[Kernel panic 实验室 - Crash 分析中关键地址参数的含义](https://mp.weixin.qq.com/s/UPI8j-GacIPFStX_dbNP9Q) | [VMCOREINFO 官方文档](https://docs.kernel.org/admin-guide/kdump/vmcoreinfo.html)
 
 ---
 
-## 1. 完整命令
+## 1. 回退命令模板
 
 ```bash
 crash_arm64 \
@@ -19,7 +19,7 @@ crash_arm64 \
   --kaslr=<KASLR偏移>
 ```
 
-> ⚠️ **为什么要带这些参数**？crash 需要在 dump 数据中还原代码段、数据段、以及物理/虚拟地址之间的对照关系。没有这些参数，crash 无法正确解析 vmcore。
+> ⚠️ **何时要带这些参数**？crash 需要还原代码段、数据段和物理/虚拟地址映射。标准 kdump 通常从 VMCOREINFO 获取；raw dump 或损坏/缺失 VMCOREINFO 时，才需要人工补齐。不要复制另一次启动的数值。
 
 ---
 
@@ -30,7 +30,7 @@ crash_arm64 \
 **含义**：内核虚拟地址空间的位数。对应内核的 `VA_BITS` 配置。
 
 **典型值**：
-- 39（4G 虚拟地址空间）— 主流
+- 39（2^39 字节可寻址范围）— 常见配置之一
 - 48（256T 虚拟地址空间）— 高端服务器
 
 **来源**：内核编译配置 `CONFIG_ARM64_VA_BITS=39` 或 `=48`
@@ -171,18 +171,18 @@ crash_arm64 \
 
 | 维度 | x86_64 | ARM64 |
 |------|--------|-------|
-| 是否需要 `-m` 参数 | ❌ 不需要（VMCOREINFO 自动包含）| ✅ **必须**显式传 4 个参数 |
-| KASLR 字段 | `KERNELOFFSET`（在 VMCOREINFO 中）| 需 `-m kaslr=xxx` 手动传 |
-| 虚拟地址位宽 | 自动 | 需 `-m vabits_actual=N` |
+| 是否需要 `-m` 参数 | 通常不需要 | 标准 kdump 通常不需要；raw/元数据损坏时回退到显式参数 |
+| KASLR 字段 | `KERNELOFFSET`（在 VMCOREINFO 中）| 优先读取 VMCOREINFO；必要时 `-m kaslr=xxx` |
+| 虚拟地址位宽 | 自动 | 优先读取 VMCOREINFO；必要时 `-m vabits_actual=N` |
 | 物理地址转换 | `__START_KERNEL_map` 固定 | `kimage_voffset` 动态 |
 | 物理基地址 | 通常 0 | 通常 0x80000000 |
 | 加密/签名 | `sme_mask`（AMD SME）| `KERNELPACMASK`（ARM64 PA）|
 
-**为什么 ARM64 必须显式传？**
+**为什么 ARM64 的回退参数更多？**
 
 x86_64 的虚拟地址空间布局**相对固定**（`__START_KERNEL_map` 固定映射），VMCOREINFO 中的 `KERNELOFFSET` 一个字段就够 crash 还原。
 
-ARM64 的虚拟地址布局**因平台而异**（VA_BITS 可变、phys_offset 因 SoC 而异），所以需要 4 个独立参数。
+ARM64 的虚拟地址布局**因平台和构建而异**（VA_BITS 可变、phys_offset 因 SoC 而异），所以在 VMCOREINFO 不可用时，需要分别恢复这些值。
 
 ---
 
@@ -288,14 +288,17 @@ crash> sys -i
 | `VMALLOC_START/END` | vmalloc 区 | crash 自动使用 |
 | `VMEMMAP_START/END` | vmemmap 区 | crash 自动使用 |
 
-> **未来展望**：部分新版 crash 工具（>= 8.0）会**自动从 VMCOREINFO 读取**这些参数并自动注入 `-m`。如果你的 crash 版本较老，必须手动传。
+> `crash` 和 `makedumpfile` 会消费 VMCOREINFO。只有工具无法解析、元数据缺失/损坏或输入不是标准 kdump vmcore 时，才走人工参数恢复流程。
 
 ---
 
 ## 8. 一行速查
 
 ```bash
-# 标准 ARM64 crash 启动（所有参数显式）
+# 标准 kdump vmcore：先让 crash 读取 VMCOREINFO
+crash vmlinux vmcore
+
+# raw/元数据损坏场景：显式恢复参数
 crash_arm64 \
   -m vabits_actual=39 -m phys_offset=0x80000000 \
   -m kimage_voffset=0xffffffc000000000 -m kaslr=0x0 \

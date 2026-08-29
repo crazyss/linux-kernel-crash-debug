@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-08
+
+### Added
+- `references/evidence-first-workflow.md`: evidence manifest, dump/symbol quality gates, failure timeline, crash-class routing, tool escalation matrix, hypothesis/disproof ledger, upstream regression verification, and root-cause report template.
+- KFENCE and KCSAN guidance, including production-vs-development tool selection and limitations.
+- pstore/ramoops, SysRq capture, drgn automation, taint decoding, watchdog, and partial-dump considerations based on current upstream documentation.
+
+### Changed
+- `SKILL.md` / `SKILL_CN.md`: upgraded the quick start from a command sequence to an evidence-first workflow and expanded trigger coverage for lockups, races, pstore, drgn, KFENCE, and KCSAN.
+- Corrected ARM64 guidance: modern kdump vmcores should use VMCOREINFO by default; explicit `-m` address parameters are a fallback for raw or damaged dumps, not a universal requirement.
+- `references/debug-tools-guide.md`: modernized KASAN modes and boot parameters, removed unsupported fixed overhead estimates, and added KFENCE/KCSAN sections.
+- `references/sources.md`: added the official and upstream sources used for this research pass.
+- `scripts/agent-crash.sh`: expanded `triage` with a bounded high-signal event index, all-active-CPU backtraces, and module inventory.
+
 ## [1.3.2] - 2026-06-14
 
 ### Fixed
@@ -92,7 +106,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.2...v1.4.0
+[1.3.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.2.1...v1.2.2

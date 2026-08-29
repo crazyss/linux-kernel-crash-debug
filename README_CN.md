@@ -7,8 +7,10 @@
 ## 功能特性
 
 - **快速入门指南**：核心命令和调试流程
+- **证据优先分诊**：产物校验、故障时间线、竞争假设与置信度报告
 - **完整命令参考**：所有 crash utility 命令及示例
 - **高级技巧**：内存分析、链表遍历、地址翻译
+- **生产环境检测**：pstore/ramoops、watchdog、KFENCE、KCSAN 与 drgn 自动化
 - **实战案例**：kernel BUG、死锁、OOM、NULL 指针、栈溢出
 - **vmcore 知识**：ELF 格式、VMCOREINFO、转储文件类型
 
@@ -49,6 +51,7 @@ linux-kernel-crash-debug/
 ├── linux-kernel-crash-debug.skill  # 打包的技能文件
 └── references/                 # 详细文档
     ├── advanced-commands.md    # 高级命令详解
+    ├── evidence-first-workflow.md # 证据门控、故障路由、验证和报告模板
     ├── vmcore-format.md        # vmcore 文件格式
     └── case-studies.md         # 实战调试案例
 ```

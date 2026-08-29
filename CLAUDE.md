@@ -18,6 +18,7 @@ linux-kernel-crash-debug/
 ├── references/                     # Detailed reference documents
 │   ├── advanced-commands.md        # Advanced crash commands reference
 │   ├── agentic-heuristics.md       # Agent debugging heuristics
+│   ├── evidence-first-workflow.md  # Evidence gates, routing, verification, report template
 │   ├── case-studies.md             # Debugging case studies
 │   ├── debug-tools-guide.md        # KASAN, Kprobes, Kmemleak guide
 │   └── vmcore-format.md            # vmcore file format details

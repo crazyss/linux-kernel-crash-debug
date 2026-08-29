@@ -353,7 +353,14 @@ crash vmlinux vmcore
 # KASLR 启用时由 KERNELOFFSET 处理
 ```
 
-#### ARM64：必须显式传地址参数
+#### ARM64：标准 kdump 优先读取 VMCOREINFO
+
+```bash
+crash vmlinux vmcore
+```
+
+只有 raw RAM、VMCOREINFO 缺失/损坏，或工具明确报告地址转换失败时，才显式
+恢复下列参数：
 
 ```bash
 crash_arm64 \
@@ -373,7 +380,8 @@ crash_arm64 \
 | `kimage_voffset` | `_text` 虚拟地址 - `_text` 物理地址 | head.S 计算 |
 | `kaslr` | KASLR 随机偏移 | = kimage_vaddr - KIMAGE_VADDR |
 
-> 完整推导实例见 `references/arm64-crash-params.md`（新建文件将详述）。
+> 不要复用另一次启动的示例值。完整回退推导见
+> `references/arm64-crash-params.md`。
 
 ---
 

@@ -7,8 +7,10 @@ Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that 
 ## Features
 
 - **Quick Start Guide**: Essential commands and debugging workflow
+- **Evidence-First Triage**: Artifact validation, failure timeline, competing hypotheses, and confidence reporting
 - **Complete Command Reference**: All crash utility commands with examples
 - **Advanced Techniques**: Memory analysis, linked list traversal, address translation
+- **Production Detection**: pstore/ramoops, watchdogs, KFENCE, KCSAN, and drgn automation
 - **Real-world Cases**: Kernel BUG, deadlock, OOM, NULL pointer, stack overflow
 - **vmcore Knowledge**: ELF format, VMCOREINFO, dump file types
 
@@ -52,6 +54,7 @@ linux-kernel-crash-debug/
 ├── references/                 # Detailed documentation
 │   ├── advanced-commands.md    # In-depth command usage
 │   ├── agentic-heuristics.md   # Agent debugging heuristics
+│   ├── evidence-first-workflow.md # Evidence gates, routing, verification, report template
 │   ├── case-studies.md         # Real-world debugging examples
 │   ├── debug-tools-guide.md    # KASAN, Kprobes, Kmemleak guide
 │   └── vmcore-format.md        # vmcore file format details
