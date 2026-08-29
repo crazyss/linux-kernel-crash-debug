@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-08-29
+
+### Security
+- Added a prominent sensitivity warning to the vmcore-format reference so readers who enter through that file still receive access-control and sanitization guidance.
+- Added local safeguards for netdump and other remote dump transfers, including destination authorization, protected transport, restricted receiver access, retention, and secure disposal.
+- Required external regression-search signatures to omit customer, host, path, address, credential, and proprietary-module details unless disclosure is explicitly approved.
+
 ## [1.4.2] - 2026-08-29
 
 ### Fixed
@@ -127,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...HEAD
+[1.4.3]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.2...v1.4.0

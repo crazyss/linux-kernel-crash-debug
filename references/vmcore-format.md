@@ -2,6 +2,11 @@
 
 Detailed kernel dump file format reference.
 
+> **Sensitive artifact:** A vmcore can contain credentials, encryption keys,
+> process memory, hostnames, paths, and customer data. Keep raw dumps and
+> derived output access-controlled; do not upload, transmit, or paste them into
+> external services without explicit authorization and approved sanitization.
+
 ## ELF Format Basics
 
 vmcore typically uses ELF (Executable and Linkable Format):
@@ -147,6 +152,11 @@ DUMPFILE: diskdump
 ### 4. netdump
 
 Red Hat netdump format:
+
+> Network delivery does not make a dump less sensitive. Before enabling remote
+> collection, authorize the destination, restrict receiver access, protect the
+> transport on the trusted network, and define retention and secure disposal.
+> Never send a raw production dump to an unapproved endpoint.
 
 ```bash
 # Features

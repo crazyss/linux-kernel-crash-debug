@@ -285,7 +285,11 @@ panic class + first non-generic function + subsystem + kernel version
 ```
 
 Search upstream documentation, lore.kernel.org, subsystem trees, stable release
-notes, and distribution errata. For a suspected regression:
+notes, and distribution errata. Build the smallest useful query before using an
+external service: remove customer names, hostnames, filesystem paths, addresses,
+credentials, and proprietary module identifiers unless disclosure is explicitly
+approved. Prefer public function names, the panic class, subsystem, and kernel
+version. For a suspected regression:
 
 1. Reproduce on the newest supported/mainline kernel when practical.
 2. Reconfirm the last known-good build with the same config and workload.
