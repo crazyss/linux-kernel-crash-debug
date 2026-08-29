@@ -2,6 +2,17 @@
 
 > **本文档为 Linux 内核崩溃转储机制的完整配置手册**，覆盖 x86_64 与 ARM64 两种主流架构。引用资料详见 `references/sources.md`。
 
+## 安全执行边界
+
+本文档同时包含只读检查、持久配置和故意触发崩溃三类操作。Agent 默认只能
+执行只读检查；安装软件、修改 GRUB、编辑 kdump 配置、启停服务或加载 capture
+kernel 前，必须取得针对具体主机与动作的明确授权，并记录原配置和回滚方法。
+
+Agent 不得执行任何主动 panic 或破坏性 kdump 测试。最终触发必须交给授权人员，
+并使用组织批准的演练 runbook；至少确认维护窗口、业务疏散、带外控制台、存储
+容量、capture kernel 已加载，以及失败后的恢复路径。下文故意不提供可直接复制
+执行的 panic 命令。
+
 ---
 
 ## 1. Kdump 机制原理
@@ -242,6 +253,10 @@ makedumpfile -d 31 -c vmcore vmcore.small   # 最小化
 
 ### 4.3 服务管理
 
+以下启用/启动命令会改变活系统，其中 `enable` 会持久化到后续启动。执行前先
+记录 `systemctl is-enabled kdump` 和 `systemctl is-active kdump`；若本次变更是
+临时的，回滚时恢复原来的 enable/active 状态，而不是一律禁用 kdump。
+
 ```bash
 # === Systemd 系统（现代发行版）===
 sudo systemctl enable kdump
@@ -268,11 +283,9 @@ cat /sys/kernel/kexec_crash_loaded
 
 > **核心引用**：[Linux 内核之旅 - Kdump 原理与配置](https://mp.weixin.qq.com/s/Nd2Ral3IyqfV0Aa-ZkEanQ)
 
-```bash
-echo c > /proc/sysrq-trigger    # 通过 NULL pointer 触发 panic
-```
-
-⚠️ 需要内核配置 `CONFIG_MAGIC_SYSRQ=y`。
+SysRq `c` 会立即使生产内核 panic。Agent 只应核对 `CONFIG_MAGIC_SYSRQ`、服务
+状态、预留内存、转储目标容量与恢复条件，不得发送触发字符。由授权人员在带外
+控制台可用的隔离演练中，按已批准 runbook 完成最终触发。
 
 ### 5.2 常用 SysRq 组合
 
@@ -298,8 +311,8 @@ systemctl status kdump
 cat /sys/kernel/kexec_crash_size    # 应 > 0
 cat /sys/kernel/kexec_crash_loaded # 应为 1
 
-# 3. 触发 panic（⚠️ 会断开会话）
-echo c > /proc/sysrq-trigger
+# 3. 停止：由授权人员按批准的演练 runbook 触发受控 panic
+# Agent 不执行此步骤，也不把它纳入自动化脚本。
 
 # 4. 重启后查看 vmcore
 ls -la /var/crash/$(date +%Y%m%d-%H%M%S)/
@@ -426,41 +439,84 @@ sudo kdumpctl estimate    # Oracle Linux
 
 ## 8. 各发行版差异
 
+先用 `cat /etc/os-release` 识别目标系统，不要仅凭包管理器猜测发行版。下表中的
+写操作都受本文开头的安全边界约束。
+
 ### 8.1 RHEL / CentOS / Rocky / AlmaLinux
 
 ```bash
 # 安装
-sudo dnf install kexec-tools crash
-sudo dnf install kernel-debuginfo-$(uname -r)
+sudo dnf install kexec-tools makedumpfile crash
+# RHEL/CentOS Stream 10 等新版本还提供 kdump-utils；先用 dnf info 确认
+dnf info kdump-utils
 
-# 配置
+# 精确匹配运行内核的 debuginfo（需启用对应 debuginfo 仓库）
+sudo dnf debuginfo-install kernel-$(uname -r)
+
+# 配置（持久修改；先备份 /etc/default/grub、/etc/kdump.conf）
 sudo kdumpctl reset-crashkernel    # 自动写入 grub
 sudo systemctl enable --now kdump
 
-# 测试
-sudo kdumpctl test
+# 只读验证
+kdumpctl status
+cat /sys/kernel/kexec_crash_size
+cat /sys/kernel/kexec_crash_loaded
 ```
 
 **vmcore 默认位置**：`/var/crash/%HOST-%DATE/`
+
+`kdumpctl test` 可能执行破坏性崩溃测试，Agent 不得运行；交由授权人员按批准
+runbook 操作。CentOS Stream 应优先参考对应主版本的 RHEL kdump 文档，因为
+软件包拆分和 `crashkernel` 默认值会随主版本变化。
 
 ### 8.2 Ubuntu / Debian
 
 ```bash
 # 安装
-sudo apt install kexec-tools makedumpfile crash linux-crashdump
-sudo apt install linux-image-$(uname -r)-dbgsym
+sudo apt install kdump-tools kexec-tools makedumpfile crash
 
-# 配置（手动编辑 /etc/default/grub）
-GRUB_CMDLINE_LINUX="crashkernel=256M"
+# Debian/Ubuntu 的调试符号包名与仓库配置不同；先查询，不要猜包名
+apt-cache search "linux-image-$(uname -r).*dbg\|linux-image-$(uname -r).*dbgsym"
+
+# 配置（持久修改；先备份 /etc/default/kdump-tools 和 GRUB 配置）
+# 在 /etc/default/kdump-tools 中设置：USE_KDUMP=1
+# 在发行版管理的 GRUB 配置中增加合适的 crashkernel= 参数
 sudo update-grub
 sudo systemctl enable --now kdump-tools
+
+# 非破坏性验证：test 只计算将使用的参数，不加载 capture kernel
+sudo kdump-config test
+sudo kdump-config show
+sudo kdump-config status
 ```
 
 **vmcore 默认位置**：`/var/crash/`
 
+Debian 的 `kdump-config test` 是安全的配置预演，与 RHEL 系的
+`kdumpctl test` 语义不同。不要跨发行版替换这两个命令。
+
 ### 8.3 SLES / openSUSE
 
-**vmcore 默认位置**：`/var/log/dump/`
+```bash
+# 安装；SLES 首选 YaST 模块，openSUSE 也可手动配置
+sudo zypper install kexec-tools makedumpfile crash yast2-kdump
+
+# 配置文件：/etc/sysconfig/kdump
+# 修改前保存副本；修改后重启服务使 initrd/配置生效
+sudo systemctl enable kdump.service
+sudo systemctl start kdump.service
+
+# 只读验证
+systemctl status kdump.service
+cat /sys/kernel/kexec_crash_size
+cat /sys/kernel/kexec_crash_loaded
+zypper se -s 'kernel*debug*'
+```
+
+**vmcore 默认位置**：`/var/crash/`，由 `/etc/sysconfig/kdump` 中的
+`KDUMP_SAVEDIR` 控制。SLES 可用 `yast2 kdump` 配置；修改
+`/etc/sysconfig/kdump` 后需要 `systemctl restart kdump.service`，但重启服务
+属于活系统变更，仍需明确授权。
 
 ### 8.4 Anolis OS / Alibaba Cloud Linux
 
@@ -489,16 +545,19 @@ sudo systemctl enable --now kdump-tools
 
 | 任务 | 命令 |
 |------|------|
-| 启用 kdump | `systemctl enable --now kdump` |
-| 测试 kdump | `echo c > /proc/sysrq-trigger` |
-| 估算 crashkernel 大小 | `sudo kdumpctl estimate` |
-| 自动配置 grub | `sudo kdumpctl reset-crashkernel` |
+| 识别发行版 | `cat /etc/os-release` |
+| RHEL/CentOS 状态 | `kdumpctl status` |
+| Debian 配置预演 | `sudo kdump-config test`（非破坏性） |
+| SUSE 状态 | `systemctl status kdump.service` |
+| 破坏性测试 | 授权人员使用批准的 runbook；Agent 不执行 |
+| RHEL/CentOS 估算内存 | `sudo kdumpctl estimate` |
+| RHEL/CentOS 自动配置 GRUB | `sudo kdumpctl reset-crashkernel`（持久修改） |
 | 查看预留大小 | `cat /sys/kernel/kexec_crash_size` |
 | 查找 vmcore | `ls -lt /var/crash/ \| head` |
 | 验证 vmcore | `crash --osrelease vmcore` |
 | 过滤 vmcore | `makedumpfile -d 31 -c vmcore vmcore.small` |
 | 分析 vmcore（x86_64） | `crash vmlinux vmcore` |
-| 分析 vmcore（ARM64） | `crash_arm64 -m vabits_actual=N -m phys_offset=X -m kimage_voffset=Y -m kaslr=Z vmlinux vmcore` |
+| 分析 vmcore（ARM64） | 先用 `crash vmlinux vmcore`；仅 raw/损坏转储回退到显式 `-m` 参数 |
 
 ---
 
@@ -509,5 +568,8 @@ sudo systemctl enable --now kdump-tools
 - [kernel.org 官方 kdump 文档](https://docs.kernel.org/admin-guide/kdump/kdump.html)
 - [kernel.org ARM64 kdump 文档](https://docs.kernel.org/arch/arm64/kdump.html)
 - [VMCOREINFO 官方规范](https://docs.kernel.org/admin-guide/kdump/vmcoreinfo.html)
+- [Debian `kdump-config(8)`](https://manpages.debian.org/testing/kdump-tools/kdump-config.8.en.html)
+- [RHEL 10 kdump 指南](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_monitoring_and_updating_the_kernel/installing-kdump)
+- [SLES 15 SP7 Kexec 与 Kdump 指南](https://documentation.suse.com/sles/15-SP7/html/SLES-all/cha-tuning-kexec.html)
 - [Oracle Linux 9 kdump 内存预留](https://docs.oracle.com/en/operating-systems/oracle-linux/9/boot/kdump-memory_reservation.html)
 - [Linux 内核之旅 - Kdump 原理与配置](https://mp.weixin.qq.com/s/Nd2Ral3IyqfV0Aa-ZkEanQ)

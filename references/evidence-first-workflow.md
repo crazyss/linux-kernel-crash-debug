@@ -177,6 +177,11 @@ These are different failure modes and require different evidence.
 
 Capture useful live state before forcing a dump when the machine still responds:
 
+Writing `/proc/sysrq-trigger` changes a live host. Obtain explicit authorization
+for the exact host and actions, confirm the output is being collected by an
+access-controlled console/log path, and keep the sequence bounded. If that
+authorization or capture path is unclear, provide these as operator steps only.
+
 ```bash
 # all CPU backtraces, blocked tasks, held locks, memory state
 echo l > /proc/sysrq-trigger
@@ -185,8 +190,10 @@ echo d > /proc/sysrq-trigger
 echo m > /proc/sysrq-trigger
 ```
 
-`echo c > /proc/sysrq-trigger` deliberately crashes the host. Use it only in an
-authorized test or incident procedure after confirming kdump is operational.
+The SysRq crash action deliberately panics the host. An agent must not execute
+or automate it. Hand the final trigger to an authorized human using an approved
+drill only after kdump, dump storage, out-of-band console access, workload
+evacuation, and recovery procedures have all been verified.
 
 ### 5.3 Memory corruption and leaks
 

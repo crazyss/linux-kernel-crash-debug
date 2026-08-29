@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-29
+
+### Security
+- Added an explicit live-system safety contract: agents default to offline/read-only analysis and require exact-host authorization, bounded capture, protected output, and same-session cleanup for privileged tracing or detector changes.
+- Removed copy-pasteable deliberate-panic commands from the published guidance. SysRq crash and destructive kdump tests are now reserved for authorized human-operated drills with console access and a recovery plan.
+- Hardened KASAN, Kprobes, Kmemleak, Lockdep, Ftrace, debugfs, and service/boot-configuration examples with local guardrails and rollback requirements in response to ClawHub verifier findings.
+
+### Fixed
+- Expanded and corrected distro-specific kdump guidance for Debian/Ubuntu, openSUSE/SLES, and RHEL/CentOS-family systems.
+- Distinguished Debian's non-destructive `kdump-config test` from the potentially destructive RHEL-family `kdumpctl test`.
+- Corrected the SLES/openSUSE default dump location to `/var/crash` and documented `/etc/sysconfig/kdump`, `kdump.service`, `yast2-kdump`, and SUSE debuginfo handling.
+- Updated RHEL/CentOS package guidance for newer `kdump-utils` packaging and restored standard VMCOREINFO-first ARM64 analysis in the distro quick reference.
+- Corrected ClawHub runtime metadata for cross-distro installs: only the universally required `crash` binary is mandatory, Linux is declared explicitly, and distro-specific helpers remain conditional.
+- Updated maintainer guidance so future metadata changes do not accidentally make one distribution's helper a global ClawHub requirement.
+
 ## [1.4.0] - 2026-08-08
 
 ### Added
@@ -106,7 +121,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.0...v1.3.1

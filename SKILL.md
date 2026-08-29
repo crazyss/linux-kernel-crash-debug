@@ -1,20 +1,14 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.0
+version: 1.4.1
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
     requires:
       bins:
         - crash
-        - gdb
-        - readelf
-        - objdump
-        - makedumpfile
-        - kexec
-        - kdumpctl
-        - systemctl
-        - journalctl
+    os:
+      - linux
     homepage: https://github.com/crazyss/linux-kernel-crash-debug
 ---
 
@@ -71,6 +65,26 @@ the evidence-quality gates, failure-type routing, hypothesis ledger, tool
 escalation rules, and root-cause report format. Never equate the panic task,
 fault site, corruption site, and root cause without supporting evidence.
 
+## Live-System Safety Contract
+
+Default to offline, read-only analysis. Treat `sudo`, module load/unload, boot
+or service configuration, writes under debugfs or `/proc/sys`, live tracing,
+and SysRq actions as live-host mutations.
+
+- Do not perform a mutation unless the user explicitly authorizes the exact
+  host and action and confirms a lab or approved maintenance context. If the
+  environment is unknown, stop after read-only checks and provide a runbook.
+- Before authorized tracing or detector changes, record the baseline, set a
+  narrow target and time limit, choose a protected output path, and define the
+  cleanup/rollback command. Apply cleanup in the same session and report it.
+- Minimize captured arguments and payloads. Trace output and vmcores may expose
+  credentials, paths, keys, and process memory; never upload or share them
+  without explicit approval and an approved sanitization process.
+- An agent must never initiate a deliberate panic, reboot, SysRq crash, or
+  `kdumpctl test`. Explain the prerequisites and hand the final trigger to an
+  authorized human following an approved drill with console access, backups,
+  workload evacuation, and a verified rollback/recovery plan.
+
 ## 🤖 Agent Execution Directives
 If you are an AI/Agent using this skill, **do not invoke `crash` interactively** as it will block your subshell.
 1. Use the bundled wrapper `./scripts/agent-crash.sh` which maps precisely to the workflows below but safely truncates outputs:
@@ -114,15 +128,27 @@ sudo dnf install kernel-devel-$(uname -r)
 #### RHEL / CentOS / Rocky / AlmaLinux
 
 ```bash
-sudo dnf install crash kernel-debuginfo-$(uname -r)
-sudo dnf install gdb binutils makedumpfile
+sudo dnf install crash gdb binutils makedumpfile kexec-tools
+# Enable the matching debuginfo repository first if needed
+sudo dnf debuginfo-install kernel-$(uname -r)
 ```
 
 #### Ubuntu / Debian
 
 ```bash
-sudo apt install crash linux-crashdump gdb binutils makedumpfile
-sudo apt install linux-image-$(uname -r)-dbgsym
+sudo apt install crash kdump-tools kexec-tools gdb binutils makedumpfile
+# Debian and Ubuntu use different debug-symbol repositories/package suffixes;
+# query the exact running-kernel package before installing it.
+apt-cache search "linux-image-$(uname -r).*dbg\|linux-image-$(uname -r).*dbgsym"
+```
+
+#### SLES / openSUSE
+
+```bash
+sudo zypper install crash kexec-tools makedumpfile
+# Optional SUSE kdump UI and matching kernel debuginfo
+sudo zypper install yast2-kdump
+zypper se -s 'kernel*debug*'
 ```
 
 ### Self-compiled Kernel
@@ -333,6 +359,10 @@ crash> bt <owner_pid>
 
 Three independent paths to diagnose memory leaks:
 
+The first path is read-only. Enabling `page_owner` or writing kmemleak controls
+changes a live kernel and must follow the Live-System Safety Contract above.
+Preserve the current output before clearing detector state.
+
 ```console
 # === Layer 1: /proc 三件套 (read from running system or captured info) ===
 # MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
@@ -349,8 +379,8 @@ cat /sys/kernel/debug/slab/kmalloc-512/free_traces
 # === Layer 3: >8K allocations (page_owner) ===
 # SUnreclaim rises but slabinfo flat → kmalloc > 8K uses alloc_pages directly
 # Enable CONFIG_PAGE_OWNER + boot with page_owner=on
-# Then:
-echo 1 > /sys/kernel/debug/page_owner/enable
+# If page_owner is not already enabled, use an approved maintenance runbook;
+# do not enable it as part of automated triage.
 # Periodic dumps, then diff:
 ./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
 ./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
@@ -429,6 +459,9 @@ The following commands can cause system damage or data loss:
 |---------|------|----------------|
 | `wr` | Writes to live kernel memory | **NEVER use on production systems** - can crash or corrupt running kernel |
 | GDB passthrough | Unrestricted memory access | Use with caution, may modify memory or registers |
+| Kprobes/ftrace/debugfs writes | Changes live instrumentation and may expose runtime data | Require explicit authorization, bounded capture, and cleanup |
+| Boot/service configuration | Persists across reboot or changes crash recovery | Back up current state and provide rollback before applying |
+| SysRq crash / `kdumpctl test` | Deliberately panics the host | Human-operated approved drill only; agents must not execute |
 
 🔒 **Sensitive Data Handling**
 

@@ -74,7 +74,11 @@ metadata:
 ---
 ```
 
-**Important**: ClawHub expects `metadata.openclaw.requires.bins`, not a top-level `requires` field. Using the wrong format will cause "Required binaries: none" in the registry.
+**Important**: ClawHub expects `metadata.openclaw.requires.bins`, not a top-level
+`requires` field. Every entry in `requires.bins` is a hard requirement that must
+be installed. Keep this list to cross-distro runtime essentials; do not add
+conditional helpers such as RHEL's `kdumpctl` or Debian's `kdump-config` as
+global requirements. Use `metadata.openclaw.os: [linux]` for this skill.
 
 ## Key Resources
 

@@ -69,6 +69,15 @@ kernel.org 文档为主：
 - **[RHEL 10: Analyzing a core dump](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_monitoring_and_updating_the_kernel/analyzing-a-core-dump)**
   - 发行版 debuginfo、partial dump 和 `vmcore-dmesg.txt` 的工程实践
 
+### 1.4 发行版 kdump 管理
+
+- **[Debian `kdump-config(8)`](https://manpages.debian.org/testing/kdump-tools/kdump-config.8.en.html)**
+  - `kdump-tools`、`/etc/default/kdump-tools`，以及 `test/show/status` 的准确语义
+- **[RHEL 10: Installing kdump](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_monitoring_and_updating_the_kernel/installing-kdump)**
+  - `kexec-tools`/`kdump-utils`/`makedumpfile` 包、`/etc/kdump.conf` 和服务管理
+- **[SLES 15 SP7: Kexec and Kdump](https://documentation.suse.com/sles/15-SP7/html/SLES-all/cha-tuning-kexec.html)**
+  - `yast2-kdump`、`/etc/sysconfig/kdump`、`kdump.service`、`KDUMP_SAVEDIR` 与 debuginfo
+
 ---
 
 ## 2. 经典技术文章 (Articles)
@@ -199,14 +208,14 @@ kernel.org 文档为主：
 
 | 类别 | 数量 | 状态 |
 |------|------|------|
-| 官方文档（kernel.org / Oracle / Red Hat） | 17 | ✅ 已抓取 |
+| 官方文档（kernel.org / Debian / SUSE / Oracle / Red Hat） | 20 | ✅ 已抓取 |
 | 上游工具文档（crash / drgn） | 2 | ✅ 已抓取 |
 | 经典 IBM/技术博客镜像 | 5 | ✅ 关键内容已转述 |
 | 微信公众号实战 | 8 | ✅ 全部抓取（8 篇 Kernel panic 实验室 + Linux 内核之旅） |
 | crash-utility 邮件列表 | 1 | ✅ 已抓取 |
 | 技术问答（StackOverflow） | 2 | ✅ 已抓取 |
 | 实战案例（Red Hat / NVIDIA） | 2 | ✅ 已抓取 |
-| **合计** | **37** | |
+| **合计** | **40** | |
 
 ---
 

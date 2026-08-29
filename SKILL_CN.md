@@ -1,20 +1,14 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.0
+version: 1.4.1
 description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
     requires:
       bins:
         - crash
-        - gdb
-        - readelf
-        - objdump
-        - makedumpfile
-        - kexec
-        - kdumpctl
-        - systemctl
-        - journalctl
+    os:
+      - linux
     homepage: https://github.com/crazyss/linux-kernel-crash-debug
 ---
 
@@ -70,6 +64,21 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 质量门控、故障路由、假设账本、工具升级规则和根因报告模板。没有直接证据
 时，不要把 panic task、故障点、破坏点和根因当成同一件事。
 
+## 活系统安全契约
+
+默认只做离线、只读分析。凡是使用 `sudo`、装卸模块、修改启动项或服务、
+写 debugfs 或 `/proc/sys`、开启活系统 tracing、执行 SysRq，均视为修改活系统。
+
+- 只有用户明确授权具体主机与具体动作，并确认处于实验环境或已批准维护窗口
+  时才可执行；环境不明时，只完成只读检查并提供人工 runbook。
+- 经授权开启 tracing 或 detector 前，记录基线，限制目标与持续时间，选择受控
+  输出目录并给出清理/回滚命令；同一会话内完成清理并报告结果。
+- 尽量不采集函数参数和业务 payload。trace 与 vmcore 可能包含凭据、路径、密钥
+  和进程内存；未经明确批准和合规脱敏，不得上传或对外分享。
+- Agent 绝不能主动触发 panic、重启、SysRq crash 或 `kdumpctl test`。只能说明
+  前置条件，并把最终触发交给有授权的人，按已批准演练流程在具备控制台、备份、
+  业务疏散以及恢复/回滚方案的前提下操作。
+
 ## 🤖 Agent Execution Directives (Agent 专用执行戒律)
 如果您是使用本技能的 AI/Agent，**绝对不要尝试开启交互式的 `crash` 会话**（会导致沙盒阻塞和上下文溢出）。
 1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，它完美映射了下方的调试流程并自带长输出断路器：
@@ -91,14 +100,28 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 | **vmcore** | kdump/netdump/diskdump/ELF 格式 |
 | **版本** | vmlinux 必须与 vmcore 内核版本完全匹配 |
 
-获取 debuginfo：
+按发行版安装工具与匹配的 debuginfo：
 ```bash
-# RHEL/CentOS
-yum install kernel-debuginfo
+# RHEL / CentOS / Rocky / AlmaLinux
+sudo dnf install crash gdb binutils makedumpfile kexec-tools
+sudo dnf debuginfo-install kernel-$(uname -r)
+
+# Debian / Ubuntu
+sudo apt install crash kdump-tools kexec-tools gdb binutils makedumpfile
+apt-cache search "linux-image-$(uname -r).*dbg\|linux-image-$(uname -r).*dbgsym"
+
+# SLES / openSUSE
+sudo zypper install crash kexec-tools makedumpfile
+sudo zypper install yast2-kdump
+zypper se -s 'kernel*debug*'
 
 # 自编译内核
 make menuconfig  # 启用 CONFIG_DEBUG_INFO
 ```
+
+ClawHub 元数据只把所有路径都需要的 `crash` 声明为硬依赖。`kdumpctl`
+（RHEL 系）、`kdump-config`（Debian 系）、YaST 和其他分析工具按发行版与任务
+安装，不能作为跨发行版的全局必需命令。
 
 ## 核心命令速查
 
@@ -287,6 +310,9 @@ crash> bt <owner_pid>
 
 三条独立诊断路径：
 
+第一条路径只读；启用 `page_owner` 或写 kmemleak 控制接口会改变活内核状态，
+必须遵循上面的安全契约。清空 detector 状态前先保存当前输出。
+
 ```
 # === 第一层：/proc 三件套（读运行系统或捕获信息）===
 # MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
@@ -303,8 +329,8 @@ cat /sys/kernel/debug/slab/kmalloc-512/free_traces
 # === 第三层：>8K 的大块分配（page_owner）===
 # SUnreclaim 上涨但 slabinfo 平稳 → kmalloc > 8K 走 alloc_pages 路径
 # 启用 CONFIG_PAGE_OWNER + bootargs 加 page_owner=on
-# 然后：
-echo 1 > /sys/kernel/debug/page_owner/enable
+# 如果 page_owner 尚未启用，使用已批准的维护 runbook；
+# 不要在自动分诊过程中临时开启。
 # 周期性抓 snapshot，对比：
 ./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
 ./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
@@ -378,6 +404,8 @@ crash: cannot resolve symbol
 2. **调试信息**: 必须使用带 debug symbols 的 vmlinux
 3. **上下文意识**: `bt`, `files`, `vm` 等命令受当前上下文影响
 4. **活系统修改**: `wr` 命令会修改运行中的内核，极其危险
+5. **Tracing 与 detector**: 必须明确授权、限制采集范围和时间，并在同一会话清理
+6. **主动 panic**: 仅限有控制台和恢复方案的人工批准演练，Agent 不得执行
 
 ## 资源
 
