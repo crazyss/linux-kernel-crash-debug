@@ -21,6 +21,7 @@
 #   - CONTRIBUTING.md              contribution guidelines (humans)
 #   - LICENSE                      GitHub repo metadata
 #   - CLAUDE.md                    guidance for Claude Code in this repo
+#   - AGENTS.md                    release and verifier runbook for agents
 #   - .github/                     GitHub platform configuration
 #   - .agents/rules/               Claude Code rules for maintainers
 #                                  (NOT for skill consumers - they install
@@ -50,5 +51,6 @@ LICENSE                export-ignore
 CONTRIBUTING.md        export-ignore
 CHANGELOG.md           export-ignore
 CLAUDE.md              export-ignore
+AGENTS.md              export-ignore
 README.md              export-ignore
 README_CN.md           export-ignore

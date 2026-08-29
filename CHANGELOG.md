@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Added a repository-level `AGENTS.md` runbook covering safe cross-distribution edits, whitelist-only packaging, GitHub releases, ClawHub pending publication, asynchronous Skill Card generation, and verifier interpretation.
+
 ## [1.4.3] - 2026-08-29
 
 ### Security
