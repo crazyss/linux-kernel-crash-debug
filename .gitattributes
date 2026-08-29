@@ -41,8 +41,11 @@
 # ============================================================================
 
 .gitignore             export-ignore
+.gitattributes         export-ignore
 .github/**             export-ignore
 .agents/**             export-ignore
+.firecrawl             export-ignore
+.firecrawl/**          export-ignore
 LICENSE                export-ignore
 CONTRIBUTING.md        export-ignore
 CHANGELOG.md           export-ignore

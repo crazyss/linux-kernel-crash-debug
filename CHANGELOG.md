@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-08-29
+
+### Fixed
+- Excluded `.gitattributes` and the tracked `.firecrawl/` research cache from `git archive` output so the clean source asset once again matches the runtime skill whitelist.
+- Extended the release workflow's forbidden-path verification to fail if either path leaks into a future source archive.
+
 ## [1.4.1] - 2026-08-29
 
 ### Security
@@ -121,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.3.1...v1.3.2
