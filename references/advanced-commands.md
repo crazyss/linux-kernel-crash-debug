@@ -329,7 +329,9 @@ crash> bt -R spin_lock         # only stacks containing spin_lock
 crash> bt -I ffffffff81000000 -S ffff880000000000  # custom start point
 ```
 
-## GDB Passthrough Mode
+## GDB Passthrough Mode — Human Reference Only
+
+Only an authorized human may use these examples in a trusted offline session. Agents must not bypass the restricted wrapper with GDB, shell escapes, command files, extensions, or output redirection. Review any scripts first and protect dump/output access.
 
 Directly use GDB commands:
 

@@ -1,5 +1,8 @@
 # ARM64 Crash 命令关键地址参数详解
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 > **本文档解析 ARM64 平台在 raw RAM、VMCOREINFO 缺失/损坏或旧工具无法自动解析时，`crash` 需要的地址参数**。标准 kdump vmcore 应先尝试 `crash vmlinux vmcore`，因为现代转储会通过 VMCOREINFO 携带这些布局信息。
 >
 > **核心来源**：[Kernel panic 实验室 - Crash 分析中关键地址参数的含义](https://mp.weixin.qq.com/s/UPI8j-GacIPFStX_dbNP9Q) | [VMCOREINFO 官方文档](https://docs.kernel.org/admin-guide/kdump/vmcoreinfo.html)

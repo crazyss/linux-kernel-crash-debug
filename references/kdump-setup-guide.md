@@ -1,5 +1,8 @@
 # Kdump 端到端配置指南
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 > **本文档为 Linux 内核崩溃转储机制的完整配置手册**，覆盖 x86_64 与 ARM64 两种主流架构。引用资料详见 `references/sources.md`。
 
 ## 安全执行边界
@@ -253,7 +256,7 @@ makedumpfile -d 31 -c vmcore vmcore.small   # 最小化
 
 ### 4.3 服务管理
 
-以下启用/启动命令会改变活系统，其中 `enable` 会持久化到后续启动。执行前先
+以下命令仅在已获具体主机和服务动作的明确授权后执行。启用/启动命令会改变活系统，其中 `enable` 会持久化到后续启动。执行前先
 记录 `systemctl is-enabled kdump` 和 `systemctl is-active kdump`；若本次变更是
 临时的，回滚时恢复原来的 enable/active 状态，而不是一律禁用 kdump。
 
@@ -534,7 +537,7 @@ zypper se -s 'kernel*debug*'
 
 **最佳实践**：
 1. 仅在**隔离/测试环境**分析 vmcore
-2. 限制文件访问权限：`chmod 600 vmcore` + `chown root:root`
+2. 限制文件访问权限：由文件所有者使用 `chmod 600 vmcore`；保留给已授权非 root 分析账号的读取权限，不为分析而提升权限
 3. 使用 `makedumpfile -d 31` 过滤用户数据后再分析
 4. 处置时使用 `shred -u vmcore` 安全删除
 5. 审计所有分析会话以满足合规要求

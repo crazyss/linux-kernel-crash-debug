@@ -1,5 +1,8 @@
 # Evidence-First Kernel Crash Workflow
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 This workflow turns a panic log or vmcore into a testable root-cause report. It
 is intentionally stricter than a command cheat sheet: every conclusion must be
 linked to preserved evidence, and every hypothesis must have a disproof test.

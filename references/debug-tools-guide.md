@@ -1,5 +1,8 @@
 # Kernel Debug Tools Guide
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 > **This guide provides advanced debugging methods beyond crash utility analysis.**
 > These tools typically require kernel recompilation with specific config options or writing kernel modules.
 

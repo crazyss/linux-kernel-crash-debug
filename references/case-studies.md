@@ -1,5 +1,8 @@
 # Debugging Case Studies
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 Detailed kernel crash debugging case analysis.
 
 ## Case 1: Kernel BUG Location

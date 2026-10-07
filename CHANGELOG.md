@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Added a repository-level `AGENTS.md` runbook covering safe cross-distribution edits, whitelist-only packaging, GitHub releases, ClawHub pending publication, asynchronous Skill Card generation, and verifier interpretation.
 
+## [1.4.4] - 2026-10-07
+
+### Security
+- Removed unrestricted `run`; added validated offline `read-memory`, `backtrace`, and `disassemble` operations.
+- Required unprivileged execution with explicit regular-file kernel/dump inputs; rejected live proc/sys/device targets, disabled crash rc files, and rejected GDB init files.
+- Validated macro argument counts, addresses, symbols, PIDs, and ARM64 parameters; enforced a complete command allowlist and literal command records.
+- Clarified optional language references, user-requested installation, and locally authorized package/service changes.
+- Aligned English/Chinese agent guidance and restricted GDB/interpreter examples to human offline reference.
+
 ## [1.4.3] - 2026-08-29
 
 ### Security
@@ -137,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...HEAD
+[1.4.4]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.0...v1.4.1

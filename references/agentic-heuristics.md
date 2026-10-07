@@ -1,6 +1,6 @@
 # Agentic Debugging Heuristics
 
-This file outlines the definitive workflow an autonomous AI Agent must follow when handling advanced Linux kernel crashes using this system. It replaces raw human CLI execution with "Agent-Safe" API methodologies.
+This file outlines the definitive workflow an autonomous AI Agent must follow when handling advanced Linux kernel crashes using this system. It uses restricted offline analysis operations rather than arbitrary interpreter input.
 
 ## 1. Safety Directives & the `scripts/agent-crash.sh` Wrapper
 Interactive commands (like a plain `crash` session REPL) will cause the Agent's subshell to freeze and timeout. Massive output (e.g., listing 100,000 active processes) will crash the Agent's context window.
@@ -10,8 +10,8 @@ Interactive commands (like a plain `crash` session REPL) will cause the Agent's 
 # General Syntax
 ./scripts/agent-crash.sh -k /path/to/vmlinux -c /path/to/vmcore <macro_or_command>
 
-# Example: Fallback raw command execution (Safe, truncated, non-blocking)
-./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff880123456789 128"
+# Example: bounded offline memory read
+./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456789 128
 ```
 
 Before interpreting output, follow `evidence-first-workflow.md`: record dump
@@ -21,7 +21,7 @@ filtered-out address trustworthy.
 
 ## 2. Upstream Verification (The Hacker Instinct)
 Before diving into assembly, a seasoned kernel developer checks for known fixes.
-- If `scripts/agent-crash.sh triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and perform a quick web search or `git grep` on the upstream Linux kernel to see if this has already been fixed. Do not reinvent the wheel if a known CVE/Bugzilla is present.
+- If `scripts/agent-crash.sh triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and first sanitize the signature (remove hostnames, customer identifiers, paths, addresses, credentials, and proprietary modules), then search official upstream sources or use local `git grep` on the Linux kernel to see if this has already been fixed. Do not reinvent the wheel if a known CVE/Bugzilla is present.
 
 ## 3. High-Level Macro Workflows (1:1 Case Mapping)
 
@@ -37,12 +37,12 @@ The wrapper provides tailored APIs for standard debugging methodologies defined 
 
 ## 4. The "Linus" Method: Reverse Engineering 
 If line numbers from Backtraces are wrong due to compiler optimization (`-O2`):
-- **Command**: `scripts/agent-crash.sh -k vmlinux dis-regs <faulty_function> <panicked_pid>`
+- **Command**: `scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <faulty_function> <panicked_pid>`
 - **Technique**: Read the exact `dis` assembly pointer (RIP). Cross-reference the exact active `%rax`, `%rdi`, or `%rsi` registers returned by `bt -f`. Map the assembly instructions to the C source snippet to deduce exactly what variable caused the corruption or NULL deref.
 
 ## 5. Memory Poison Dictionary Validation
 When inspecting a corrupted pointer or structure:
-- **Command**: `scripts/agent-crash.sh -k vmlinux check-poison <suspicious_address>`
+- **Command**: `scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <suspicious_address>`
 - **Logic**: The Agent should instantly flag the bug if the script detects these magic values:
   - `0x6b6b6b6b`: Use After Free (`POISON_FREE`)
   - `0x5a5a5a5a`: Uninitialized SLUB Object (`POISON_INUSE`)
@@ -50,11 +50,12 @@ When inspecting a corrupted pointer or structure:
   - `0x0000000000000200` (`LIST_POISON2`): Traversing a deleted list `prev`
 
 ## 6. Fallback Strategy
-If all high-level macros fail to pinpoint the kernel anomaly, the Agent **must fall back to manual raw commands**.
-- Use `./scripts/agent-crash.sh -k vmlinux run "<command>"` for primitives.
-- Use `rd <addr> <count>` for manual stack unwinding if `bt` is broken (double faults).
-- Use `list -h <start>` to manually walk broken structures.
-- Remember the output is truncated to 400 lines by the wrapper for your safety. Do not request massively broad sweeps.
+If high-level macros leave an evidence gap, use only the wrapper's restricted primitives:
+- `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory <hex-address> <count>` (1..256 words).
+- `./scripts/agent-crash.sh -k vmlinux -c vmcore backtrace <numeric-pid>`.
+- `./scripts/agent-crash.sh -k vmlinux -c vmcore disassemble <kernel-symbol>`.
+
+The unrestricted `run` operation is removed. Do not bypass this boundary with direct crash/GDB input, shell escapes, command files, or extensions. For an unsupported operation such as structure-list traversal, document the missing evidence and hand the exact offline query to an authorized human. Both files must be readable regular files; use an unprivileged account without local/home `.gdbinit`. Keep dumps and output protected. Timeout/truncation are resource limits, not an OS sandbox.
 
 ## 7. Required Conclusion Format
 

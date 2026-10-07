@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.3
+version: 1.4.4
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
@@ -18,6 +18,8 @@ This skill guides you through analyzing Linux kernel crash dumps using the crash
 
 ## Installation
 
+Install only when the user requests installation. These commands place skill files in the user workspace; they do not authorize services, startup hooks, or background jobs.
+
 ### Claude Code
 ```bash
 claude skill install linux-kernel-crash-debug.skill
@@ -34,6 +36,8 @@ cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
 ```
 
 ## Quick Start
+
+**Language choice:** Respond in the user’s preferred language. `SKILL_CN.md` and Chinese references are optional companion material; translate relevant explanations when requested. Source titles retain their original language for attribution.
 
 ### Starting a Session
 
@@ -87,13 +91,14 @@ and SysRq actions as live-host mutations.
 
 ## 🤖 Agent Execution Directives
 If you are an AI/Agent using this skill, **do not invoke `crash` interactively** as it will block your subshell.
-1. Use the bundled wrapper `./scripts/agent-crash.sh` which maps precisely to the workflows below but safely truncates outputs:
+1. Use the bundled wrapper `./scripts/agent-crash.sh` for offline regular-file dumps under an unprivileged account. It enforces a narrow command allowlist and truncates displayed output:
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - Runs `sys`, a high-signal log index, panic/all-CPU backtraces, and module inventory.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - Top 15 memory checks.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - Pulls UN task stacks.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Assembly regression.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - Pattern match memory poisons.
-2. **Fallback Strategy**: If macros don't solve the issue, fall back to basic primitives manually: `./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff880123456780"`.
+2. **Restricted primitives**: Use `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`, `backtrace <pid>`, or `disassemble <symbol>` when macros are insufficient. `run` is removed. Both input paths are mandatory; live `/proc`, `/sys`, `/dev` inputs, root execution, and local/home `.gdbinit` files are rejected. Startup `.crashrc` files are disabled. No arbitrary crash/GDB commands, shell escapes, pipelines, redirection, command files, or extensions are exposed by this wrapper. Memory reads are limited to 1..256 words.
+   Keep dumps and collected output access-controlled. Use a trusted installed `crash` executable in an isolated analysis environment; the wrapper is not an OS sandbox or a defense against parser vulnerabilities in malformed dumps/symbol files. If a needed query is unsupported, report the evidence gap and hand a precise offline query to an authorized human rather than bypassing the wrapper.
 3. Check `references/agentic-heuristics.md` for extended expert methodologies.
 4. Follow `references/evidence-first-workflow.md`: report symbol/dump quality,
    identify the earliest anomaly, keep competing hypotheses, and attach a
@@ -108,6 +113,8 @@ If you are an AI/Agent using this skill, **do not invoke `crash` interactively**
 | **Version** | vmlinux must exactly match the vmcore kernel version |
 
 ### Package Installation
+
+Package installation changes the host and may need administrator privileges. Require explicit authorization for the exact host and packages; prefer already-installed tools. Offline dump analysis runs as an unprivileged account.
 
 #### Anolis OS / Alibaba Cloud Linux
 
@@ -231,7 +238,9 @@ crash> set <task_addr>  # Switch to task address
 crash> set -p           # Restore to panic task
 ```
 
-## Session Control
+## Session Control (Human Reference)
+
+The following interpreter features are for an authorized human in a trusted offline session. Agents must use the wrapper above; do not invoke GDB passthrough, redirection, or command-file inclusion as a fallback. Review command files before any human use and protect output paths.
 
 ```console
 # Output control
@@ -458,7 +467,7 @@ The following commands can cause system damage or data loss:
 | Command | Risk | Recommendation |
 |---------|------|----------------|
 | `wr` | Writes to live kernel memory | **NEVER use on production systems** - can crash or corrupt running kernel |
-| GDB passthrough | Unrestricted memory access | Use with caution, may modify memory or registers |
+| GDB passthrough | Unrestricted memory access | Human-only trusted offline reference; agents must not use passthrough |
 | Kprobes/ftrace/debugfs writes | Changes live instrumentation and may expose runtime data | Require explicit authorization, bounded capture, and cleanup |
 | Boot/service configuration | Persists across reboot or changes crash recovery | Back up current state and provide rollback before applying |
 | SysRq crash / `kdumpctl test` | Deliberately panics the host | Human-operated approved drill only; agents must not execute |

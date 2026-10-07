@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.3
+version: 1.4.4
 description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
@@ -24,6 +24,8 @@ claude skill install linux-kernel-crash-debug.skill
 ```
 
 ### OpenClaw
+
+仅在用户要求安装时执行以下步骤。这些命令仅放置技能文件，不授权启用服务、启动钩子或后台任务。
 ```bash
 # 方式一：通过 ClawHub 安装
 clawhub install linux-kernel-crash-debug
@@ -34,6 +36,8 @@ cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
 ```
 
 ## 快速开始
+
+**语言选择**：按用户偏好回复。中文入口与中文参考资料为可选内容；需要英文时使用 `SKILL.md` 并翻译相关说明。引用标题保留原文用于溯源。
 
 ### 启动会话
 
@@ -81,13 +85,14 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 
 ## 🤖 Agent Execution Directives (Agent 专用执行戒律)
 如果您是使用本技能的 AI/Agent，**绝对不要尝试开启交互式的 `crash` 会话**（会导致沙盒阻塞和上下文溢出）。
-1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，它完美映射了下方的调试流程并自带长输出断路器：
+1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，仅用非 root 账号分析离线普通文件。工具强制执行受限命令白名单，并截断显示输出：
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 输出 `sys`、高信号日志索引、panic/全 CPU 栈和模块清单。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 获取崩溃反汇编与现场寄存器值的组合视图。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 特征码探测（检测 UAF、SLUB 等常见特征）。
-2. **底层降级策略 (Fallback Strategy)**：如果上面的宏指令排查不出结果，请通过 wrapper 执行标准内核调试命令：`./scripts/agent-crash.sh -k vmlinux -c vmcore run "rd ffff8800..."`。
+2. **受限底层操作**：宏不足时可用 `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`、`backtrace <pid>` 或 `disassemble <symbol>`。已移除 `run`。必须同时指定两个输入文件；工具拒绝实时 `/proc`、`/sys`、`/dev` 输入、root 执行以及当前目录/用户目录的 `.gdbinit`，并禁用启动 `.crashrc`。不开放任意 crash/GDB 命令、shell 转义、管道、重定向、命令文件或扩展加载。内存读取限定为 1..256 个字。
+   对 vmcore 和采集输出实施访问控制。在隔离分析环境中使用可信已安装的 `crash`；封套不是操作系统沙盒，也不能防御畸形转储/符号文件触发的解析器漏洞。不支持的查询应报告证据缺口，将明确的离线查询交给有授权的人，不得绕过封套。
 3. 如果您需要更高的专家视角，请查阅 `references/agentic-heuristics.md`（高阶内核黑客视角策略）。
 4. 遵循 `references/evidence-first-workflow.md`：报告符号/转储质量，定位最早
    异常，保留竞争假设，并为结论给出置信度与证伪方法。
@@ -100,7 +105,7 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 | **vmcore** | kdump/netdump/diskdump/ELF 格式 |
 | **版本** | vmlinux 必须与 vmcore 内核版本完全匹配 |
 
-按发行版安装工具与匹配的 debuginfo：
+软件安装会改变主机；仅在获得具体主机和软件包的明确授权后执行。优先使用已安装工具，离线转储分析使用非 root 账号。按发行版安装工具与匹配的 debuginfo：
 ```bash
 # RHEL / CentOS / Rocky / AlmaLinux
 sudo dnf install crash gdb binutils makedumpfile kexec-tools
@@ -182,7 +187,9 @@ crash> set <task_addr>  # 切换到任务地址
 crash> set -p           # 恢复到 panic 任务
 ```
 
-## 会话控制
+## 会话控制（人工参考）
+
+以下解释器功能仅供有授权的人在可信离线会话中使用。Agent 必须使用上面的封套，不得降级调用 GDB 直通、重定向或命令文件。人工使用前审核命令文件，并保护输出路径。
 
 ```
 # 输出控制

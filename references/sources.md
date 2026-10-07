@@ -227,3 +227,9 @@ kernel.org 文档为主：
 - **zhangskd**（Linux 内核之旅公众号）— 提供了 kdump 系列文章
 - **Dave Anderson**、**Alexandr Terekhov** 等 crash-utility 维护者 — 维护了高质量的 crash 工具和邮件列表
 - **Baoquan He**（Red Hat）— 编写了官方 ARM64 kdump 文档
+
+## Offline wrapper security references (v1.4.4)
+
+- [crash rd help](https://crash-utility.github.io/help_pages/rd.html): `rd -r` writes an output file; the wrapper permits only a hexadecimal address and bounded count.
+- [crash dis help](https://crash-utility.github.io/help_pages/dis.html): the wrapper permits symbol-only disassembly, without expressions or arbitrary options.
+- [crash startup source](https://github.com/crash-utility/crash/blob/master/main.c): documents `--no_crashrc` and startup file handling. The wrapper disables crash rc files and rejects local/home GDB init files.

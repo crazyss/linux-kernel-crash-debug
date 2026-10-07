@@ -17,6 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Verify Offline Wrapper Boundary
+        run: |
+          bash -n scripts/agent-crash.sh
+          python3 .github/tests/test_agent_crash.py
+
       - name: Create Skill Package
         run: |
           # Whitelist-only packaging: do NOT include LICENSE, CONTRIBUTING.md,

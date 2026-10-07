@@ -1,5 +1,8 @@
 # ARM64 锁指针与 mutex owner 反推
 
+> Language note: Chinese explanations and original source titles are optional companion material. Follow the user’s preferred language and translate relevant passages when needed; no locale is required.
+
+
 本文说明任务阻塞在 `mutex_lock()`、`__mutex_lock()` 或 rwsem 慢路径时，如何从 ARM64 反汇编和栈帧恢复锁地址，并继续定位持锁任务。
 
 > 下面的地址和偏移仅用于演示。必须以当前 vmcore 对应的 `vmlinux`、实际反汇编和栈帧为准。
