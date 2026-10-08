@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.4
+version: 1.4.5
 description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
@@ -67,6 +67,11 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 深入分析前先阅读 `references/evidence-first-workflow.md`。其中定义了证据
 质量门控、故障路由、假设账本、工具升级规则和根因报告模板。没有直接证据
 时，不要把 panic task、故障点、破坏点和根因当成同一件事。
+
+完整证据链示例见 `references/case-studies.md` 的 Case 13–15：GRO 包头偏移
+反推、InfiniBand 错误清理路径重复释放、文件系统 writeback/reclaim 死锁。
+二分结果先视为候选触发变更，NMI 栈帧先视为被中断上下文，采集开销也可能
+促成停顿；均需验证后才能归因。
 
 ## 活系统安全契约
 
@@ -379,7 +384,7 @@ crash> list -h <addr> -s dentry.d_name.name
 |------|------|
 | `references/advanced-commands.md` | 高级命令详解：list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore 文件格式、ELF 结构、VMCOREINFO |
-| `references/case-studies.md` | 详细调试案例：kernel BUG、死锁、OOM、NULL指针、栈溢出 |
+| `references/case-studies.md` | 调试案例，含有来源的 GRO 偏移、InfiniBand 重复释放、writeback/reclaim 证据链（Case 13–15） |
 | `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
 | `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |
 | `references/arm64-lock-analysis.md` | ARM64 mutex/rwsem 锁指针的汇编与栈恢复，以及 mutex owner 解码 |

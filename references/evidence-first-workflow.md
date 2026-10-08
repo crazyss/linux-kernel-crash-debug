@@ -139,6 +139,14 @@ The panic task is not automatically the culprit. It may be the first task to
 touch memory corrupted earlier, the watchdog that noticed a stalled CPU, or the
 OOM killer reacting to a long-running leak.
 
+For an NMI or hardware-error report, separate the handler's stack from the
+interrupted context. A frame such as `intel_idle` tells you where the CPU was
+interrupted; it does not by itself identify a faulty driver. Correlate the
+notification path, syndrome, and timestamped firmware/BMC/PCIe records before
+attributing the failure. See the [hardware-panic investigation](https://blog.alicegoldfuss.com/debugging-hardware-panic/)
+for this evidence handoff; its hardware replacement request is not a documented
+long-term verification result.
+
 ## 5. Phase C — Classify and Route
 
 | Signature | First checks | Preferred next tool |
@@ -171,12 +179,32 @@ the instruction, and verify the supposed object type with both its allocator
 metadata and invariant fields. Compiler optimization and inlining can make a
 source-line-only explanation wrong.
 
+When only an Oops is available, track what each saved register held at the
+faulting instruction, including intermediate arithmetic and operand widths.
+Do not assume argument registers still hold their entry values. Case 13 in
+`case-studies.md` reconstructs a GRO offset from a preserved difference;
+unobserved object fields must remain unknown.
+
 ### 5.2 Hangs, lockups, and deadlocks
 
 Soft lockup means kernel code failed to schedule for roughly
 `2 * watchdog_thresh`; hard lockup means a CPU stopped servicing the watchdog
 heartbeat. A hung task means a task remained blocked, usually in `D` state.
 These are different failure modes and require different evidence.
+
+Check collection overhead before adding more diagnostics. Slow serial output
+and high-overhead tracing can themselves contribute to stalls, as documented
+by the [RCU stall detector guide](https://docs.kernel.org/RCU/stallwarn.html).
+Record console configuration, approximate output volume, affected CPUs, and
+interrupt progress from existing evidence. Any live collection change still
+requires exact-host/action authorization, bounded scope and duration, protected
+output, and same-session cleanup or rollback. Do not suppress watchdogs merely
+to hide their warnings.
+
+A dependency cycle can involve page writeback or I/O completion, not just
+mutexes. Recover the waited-on object and identify which operation must make
+progress to release it; Case 15 in `case-studies.md` follows a page's mapping to
+the inode whose writeback is blocked by reclaim.
 
 Capture useful live state before forcing a dump when the machine still responds:
 
@@ -216,6 +244,11 @@ Choose instrumentation by environment and hypothesis:
 The tool that reports corruption found the detection point, which may not be
 the instruction that first corrupted the object. Allocation and free stacks,
 timestamps, and repeated reproductions are needed to close that gap.
+
+For a failure during cleanup, inspect the earlier allocation error and every
+release path, including callbacks. A poison pattern alone does not prove a
+double free. Case 14 in `case-studies.md` combines the object's allocation/free
+records with the error-path source to establish the sequence.
 
 ### 5.4 Races and locking
 
@@ -301,6 +334,17 @@ version. For a suspected regression:
 5. Validate a candidate fix by reverting or applying that exact change, not by
    assuming correlation from a version upgrade.
 
+The first bad commit can expose an older defect by changing object layout,
+allocation reuse, or timing. Keep the **observed trigger**, **defect-introducing
+change**, and **fix** separate in the report. The [kthread UAF investigation](https://gtucker.io/posts/2026-06-23-splitk-no1/)
+illustrates this distinction: bisection implicated a pidfs layout change, while
+the lifetime bug was in kthread exit handling. Test the proposed causal chain;
+a successful revert alone does not prove where the defect originated.
+
+Reproduction that could panic or reboot a host is an authorized human lab task.
+Agents must not execute deliberate crash triggers; record human-supplied test
+results and keep unperformed verification explicitly pending.
+
 ## 9. Root-Cause Report Template
 
 ```markdown
@@ -344,6 +388,7 @@ version. For a suspected regression:
 - [Kdump](https://docs.kernel.org/admin-guide/kdump/kdump.html)
 - [VMCOREINFO](https://docs.kernel.org/admin-guide/kdump/vmcoreinfo.html)
 - [Soft and hard lockup watchdogs](https://docs.kernel.org/admin-guide/lockup-watchdogs.html)
+- [RCU stall warnings and diagnostic overhead](https://docs.kernel.org/RCU/stallwarn.html)
 - [Magic SysRq](https://docs.kernel.org/admin-guide/sysrq.html)
 - [Ramoops](https://docs.kernel.org/admin-guide/ramoops.html)
 - [KASAN](https://docs.kernel.org/dev-tools/kasan.html)

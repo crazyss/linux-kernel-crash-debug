@@ -958,6 +958,155 @@ For complete slub_debug flag reference (f/z/p/u/t), see `references/debug-tools-
 
 ---
 
+## Case 13: GRO Header-Offset Reconstruction from an Oops
+
+**Source:** [Cloudflare — The tale of a single register value](https://blog.cloudflare.com/the-tale-of-a-single-register-value/)
+(2021). This is a condensed analysis of the published incident, not a new
+reproduction. Offsets below belong to that build only.
+
+### Symptoms and Evidence
+
+Sporadic IPv4-stack faults reached `skb_gso_transport_seglen()`. The available
+Oops included a faulting instruction and registers, but not a full vmcore.
+The instruction read a byte at `RCX + 0xc`, corresponding to the TCP header's
+data-offset field. Disassembly showed that RAX/RSI retained the difference
+between the inner and outer transport-header offsets: `0xfeda`.
+
+### Analysis Chain
+
+1. Match the kernel build, symbols, and instruction bytes before interpreting
+   offsets. Trace register assignments backwards from the fault; argument
+   registers may already have been reused.
+2. Map member offsets against that build's `sk_buff` layout. The arithmetic
+   suggested a bad header offset, but did not alone exclude prior corruption.
+3. Follow the receive/forward path: the published trace included veth polling
+   with XDP and GRO aggregation. The author's subsequent controlled tracing
+   established the outer transport-header offset as 290 bytes.
+4. Combine that additional evidence with the saved difference:
+
+   ```text
+   inner offset = 0xfeda + 290 = 65532 = 0xfffc
+   attempted byte = skb->head + 0xfffc + 0xc
+   ```
+
+   This places the read about 64 KiB beyond the buffer start. The value 290 is
+   not derivable from the register difference alone and must not be guessed
+   for a different incident.
+5. Inspect the GRO completion path. The author found that the inner transport
+   offset was not updated, and verified correct offsets after the fix.
+
+### Conclusion and Limits
+
+The source identifies fix `d51c5907e980`, which sets the inner transport-header
+offset in TCP/UDP GRO completion. For another kernel, inspect the affected code
+and distribution backport before claiming the same defect.
+
+Agents may analyze supplied Oops/disassembly evidence and use the existing
+wrapper on offline files. Unsupported layout/GDB queries belong to an
+authorized human offline session; do not bypass the wrapper. This case does
+not authorize replaying packets, attaching live probes, or reproducing a crash.
+If the layout or packet-path evidence is missing, report an offset-corruption
+hypothesis rather than a confirmed GRO bug.
+
+---
+
+## Case 14: InfiniBand Allocation Failure and Error-Path Double Free
+
+**Source:** [Red Hat Solution 6407811](https://access.redhat.com/solutions/6407811).
+The published vmcore analysis concerns InfiniBand port setup under memory
+pressure/fragmentation. Its addresses and structure layouts are build-specific.
+
+### Symptoms and Evidence
+
+A failure while creating InfiniBand port attributes eventually faulted in
+`ib_port_release()`. RAX contained the freed-memory poison pattern `0x6b...`.
+Earlier kernel messages recorded an allocation failure; slab tracking retained
+allocation and release histories for the implicated object.
+
+### Analysis Chain
+
+1. Establish the first allocation failure and the later release fault from the
+   timeline. Low memory explains entry into cleanup, not the correctness of
+   that cleanup.
+2. Decode the faulting load and follow the member accesses through `ib_port`
+   and its `pkey_group`. The source recovers the group address from a register
+   whose value survives to the faulting instruction.
+3. Verify cache membership, object boundaries, and allocation state. A poison
+   value is a clue; it does not identify who freed an object or prove a second
+   free occurred.
+4. Compare available allocation/free tracking records with the source. In this
+   incident they point to the port-attribute setup path. If tracking was not
+   enabled or pages were filtered, mark the history unavailable.
+5. Walk the error exits and callbacks: setup frees `pkey_group`, then a later
+   `kobject_put()` invokes the release callback while the group pointer still
+   refers to freed storage. The release path uses/cleans that storage again.
+
+### Conclusion and Limits
+
+The evidence supports an error-path lifetime defect in InfiniBand, with memory
+pressure as its trigger. The vendor source lists corrected kernel builds;
+compare the exact branch/backport rather than applying its version threshold
+to every distribution.
+
+Use wrapper triage, bounded memory reads, and symbol disassembly where
+supported. Cache/layout/tracking queries beyond the wrapper require an
+authorized human offline analysis; preserve returned evidence and access
+controls. Do not enable SLUB instrumentation or generate memory pressure as
+part of this offline case. A future collection plan requires exact-host/action
+authorization, bounded scope, protected output, and rollback; deliberate crash
+testing remains human-only.
+
+---
+
+## Case 15: Filesystem Writeback Waiting on Its Own Reclaim Dependency
+
+**Source:** [Red Hat Solution 2973771](https://access.redhat.com/solutions/2973771).
+The worked dump uses ext4 on RHEL 7; the vendor discusses the same class of
+writeback/reclaim dependency for local filesystems including XFS.
+
+### Symptoms and Evidence
+
+A writer under a memory cgroup remained blocked. Its stack led from filesystem
+writeback into allocation, memcg reclaim, and `wait_on_page_bit()`. A blocked
+task alone could also indicate slow I/O, so the waited-on object matters.
+
+### Analysis Chain
+
+1. Obtain the blocked stack and identify the allocation/reclaim transition.
+   Recover the page argument from the actual disassembly and saved stack slots;
+   do not assume a historical R14 or stack offset is valid for another build.
+2. Validate the page and its flags. The published page was marked writeback.
+   Follow its mapping to `address_space.host` to identify the associated inode.
+3. Recover the inode involved in the original filesystem writeback and compare
+   identities. In the source analysis, the waited-on page belongs to that inode.
+4. Inspect submission ordering to establish the cycle. Equal inode addresses
+   alone do not prove that the current task must complete the pending I/O:
+
+   ```text
+   prepare filesystem writeback
+       -> allocate memory -> memcg reclaim
+       -> wait for a page's writeback completion
+       -> requires I/O submission by the blocked preparation path
+   ```
+
+5. Distinguish this cycle from an already-submitted request waiting on a slow
+   device. Missing submission evidence leaves the deadlock hypothesis open.
+
+### Conclusion and Limits
+
+The vendor's analysis establishes a writeback/reclaim dependency cycle and
+identifies a corrected RHEL kernel. No mutex-owner cycle is required. For a new
+incident, validate page state, mapping, inode identity, and submission ordering
+against the captured build before applying that conclusion.
+
+Agents use wrapper `flow-deadlock`, bounded reads, and symbol disassembly on
+offline files. Page/mapping/inode traversal unsupported by the wrapper is an
+authorized human offline query, not a reason to restore arbitrary interpreter
+input. Keep missing or filtered page data unknown. Do not reproduce the hang
+or alter cgroup limits, storage, or boot configuration from this case study.
+
+---
+
 ## Additional Resources
 
 - **Crash Utility Whitepaper**: https://crash-utility.github.io/crash_whitepaper.html

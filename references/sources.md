@@ -183,6 +183,26 @@ kernel.org 文档为主：
   - 原始缓存：`.firecrawl/x86-search-1.md`
   - 内容：crash utility 官方仓库、help 页面索引
 
+### 3.3 新增证据链案例与诊断约束（2026-10-08 核对）
+
+- **[Cloudflare: The tale of a single register value](https://blog.cloudflare.com/the-tale-of-a-single-register-value/)**
+  - 原作者 Jakub Sitnicki，2021-11-03；Case 13：Oops 寄存器差值、sk_buff 布局、GRO 路径和修复后验证。
+  - 文中实验补充的信息应与原始 Oops 分开记录；不能把特定构建的偏移用于其他内核。
+- **[Red Hat Solution 6407811: slab failures under memory pressure](https://access.redhat.com/solutions/6407811)**
+  - Case 14：InfiniBand 分配失败、slab poison、分配/释放记录和 kobject 清理路径的证据链。
+- **[Red Hat Solution 2973771: filesystem writeback/reclaim deadlock](https://access.redhat.com/solutions/2973771)**
+  - Case 15：从栈恢复 page，经 mapping 定位 inode，结合 I/O 提交顺序证明循环等待。
+- **[Guillaume Tucker: Split Kernel #1 – kthread use-after-free](https://gtucker.io/posts/2026-06-23-splitk-no1/)**
+  - 原报告者的二分、维护者讨论与修复测试记录；用于区分暴露问题的布局变更和缺陷起源。
+- **[Alice Goldfuss: Debugging a Hardware Panic](https://blog.alicegoldfuss.com/debugging-hardware-panic/)**
+  - 原作者的 vmcore、NMI 与 ESM/PCIe 事件排查；用于提醒被中断函数不自动等于根因。
+  - 原文记录了硬件更换申请，未提供更换后长期验证；不采用其早期 intel_idle 归因。
+- **[Linux kernel: Using RCU's CPU Stall Detector](https://docs.kernel.org/RCU/stallwarn.html)**
+  - 官方说明慢速 console 和高开销 tracing 可促成 stall；用于采集开销约束。
+
+以上为来源核对与分析方法转述，不代表在本项目中执行过故障复现。涉及生产
+主机的原文操作不继承授权；保留离线 wrapper、精确授权和人工崩溃测试边界。
+
 ---
 
 ## 4. 关键架构对比 (Architecture Comparison)
@@ -204,7 +224,10 @@ kernel.org 文档为主：
 
 ---
 
-## 5. 引用统计
+## 5. 历史引用统计
+
+以下为本轮新增来源前的统计快照，不含 §3.3 和文末 wrapper 安全来源；
+完整来源以各节链接为准，避免把历史数量误读为当前总数。
 
 | 类别 | 数量 | 状态 |
 |------|------|------|

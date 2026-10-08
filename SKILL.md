@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.4
+version: 1.4.5
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
@@ -68,6 +68,12 @@ Read `references/evidence-first-workflow.md` before deep analysis. It defines
 the evidence-quality gates, failure-type routing, hypothesis ledger, tool
 escalation rules, and root-cause report format. Never equate the panic task,
 fault site, corruption site, and root cause without supporting evidence.
+
+For worked evidence chains, read Cases 13–15 in `references/case-studies.md`:
+GRO header-offset reconstruction, InfiniBand error-path double free, and
+filesystem writeback/reclaim deadlock. Treat a bisect result as a candidate
+trigger, an NMI frame as interrupted context, and collection overhead as a
+possible contributor to stalls; verify each before assigning a root cause.
 
 ## Live-System Safety Contract
 
@@ -431,7 +437,7 @@ For detailed information, refer to the following reference files:
 |------|---------|
 | `references/advanced-commands.md` | Advanced commands: list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
-| `references/case-studies.md` | Debugging cases: kernel BUG, deadlock, OOM, NULL pointer, stack overflow |
+| `references/case-studies.md` | Debugging cases, including sourced GRO offset, InfiniBand double-free, and writeback/reclaim evidence chains (Cases 13–15) |
 | `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
 | `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
 | `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |

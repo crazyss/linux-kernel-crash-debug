@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-10-08
+
+### Added
+- Three sourced, offline case studies: reconstructing GRO header offsets from an Oops, tracing an InfiniBand error-path double free, and proving a filesystem writeback/memcg reclaim dependency cycle.
+
+### Changed
+- Strengthened the evidence-first workflow for NMI attribution, diagnostic overhead, and distinguishing a bisected trigger from a defect's origin.
+- Aligned English/Chinese entry-point routing and both manifests for version `1.4.5`.
+- Kept case-specific structure queries as authorized human offline analysis when the existing wrapper does not support them.
+
 ### Documentation
 - Added a repository-level `AGENTS.md` runbook covering safe cross-distribution edits, whitelist-only packaging, GitHub releases, ClawHub pending publication, asynchronous Skill Card generation, and verifier interpretation.
 
@@ -146,7 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...HEAD
+[1.4.5]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.1...v1.4.2
