@@ -11,6 +11,7 @@
 - **完整命令参考**：所有 crash utility 命令及示例
 - **高级技巧**：内存分析、链表遍历、地址翻译
 - **生产环境检测**：pstore/ramoops、watchdog、KFENCE、KCSAN 与 drgn 自动化
+- **定点取证打法**：KMSAN 来源链、DMA 映射核对、按任务故障注入、条件轨迹捕获与 RCU stall 差分（[操作方案](references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap)、[RCU 判读](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period)）
 - **实战案例**：kernel BUG、死锁、OOM、NULL 指针、栈溢出
 - **vmcore 知识**：ELF 格式、VMCOREINFO、转储文件类型
 

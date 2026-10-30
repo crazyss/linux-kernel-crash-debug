@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.5
-description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
+version: 1.5.0
+description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, KMSAN, DMA API debugging, fail-nth, conditional trace capture, RCU stalls, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
     requires:
@@ -74,6 +74,21 @@ GRO header-offset reconstruction, InfiniBand error-path double free, and
 filesystem writeback/reclaim deadlock. Treat a bisect result as a candidate
 trigger, an NMI frame as interrupted context, and collection overhead as a
 possible contributor to stalls; verify each before assigning a root cause.
+
+### When the first pass leaves an evidence gap
+
+Choose one targeted playbook rather than enabling every detector:
+
+| Missing evidence | Next playbook |
+|---|---|
+| Where an uninitialized value originated | [KMSAN origin tracking](references/debug-tools-guide.md#81-uninitialized-values-kmsan-origin-tracking) |
+| Whether a driver misused DMA mappings | [DMA API lifecycle checks](references/debug-tools-guide.md#82-device-corruption-dma-api-lifecycle-checks) |
+| Which failed allocation breaks cleanup | [Per-task fault injection](references/debug-tools-guide.md#83-error-paths-deterministic-per-task-fault-injection) |
+| Events immediately preceding a rare symptom | [Conditional flight recorder](references/debug-tools-guide.md#84-rare-symptoms-conditional-flight-recorder) |
+| What actually prevents an RCU grace period completing | [RCU stall differential reading](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period) |
+
+These complement the existing OOB/UAF, race, leak, and lock-order tools. Start
+with saved evidence; live experiments still follow the safety contract below.
 
 ## Live-System Safety Contract
 
@@ -438,7 +453,7 @@ For detailed information, refer to the following reference files:
 | `references/advanced-commands.md` | Advanced commands: list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
 | `references/case-studies.md` | Debugging cases, including sourced GRO offset, InfiniBand double-free, and writeback/reclaim evidence chains (Cases 13–15) |
-| `references/debug-tools-guide.md` | Advanced debugging tools: KASAN, Kprobes, Kmemleak, UBSAN (require kernel rebuild) |
+| `references/debug-tools-guide.md` | Detector selection; KMSAN origins, DMA lifecycle checks, per-task failure injection, and conditional trace capture (§8) |
 | `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
 | `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |
 | `references/arm64-lock-analysis.md` | ARM64 assembly/stack recovery of mutex and rwsem pointers, plus mutex owner decoding |

@@ -1,7 +1,7 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.4.5
-description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
+version: 1.5.0
+description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、KMSAN、DMA API 调试、fail-nth、条件轨迹捕获、RCU stall、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
     requires:
@@ -72,6 +72,21 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 反推、InfiniBand 错误清理路径重复释放、文件系统 writeback/reclaim 死锁。
 二分结果先视为候选触发变更，NMI 栈帧先视为被中断上下文，采集开销也可能
 促成停顿；均需验证后才能归因。
+
+### 首轮分析仍缺证据时
+
+按缺失的证据选一种打法，不要同时打开所有 detector：
+
+| 证据缺口 | 下一步打法 |
+|---|---|
+| 未初始化的值从哪里来 | [KMSAN 来源链追踪](references/debug-tools-guide.md#81-uninitialized-values-kmsan-origin-tracking) |
+| 驱动是否误用了 DMA 映射 | [DMA API 生命周期核对](references/debug-tools-guide.md#82-device-corruption-dma-api-lifecycle-checks) |
+| 哪次分配失败会破坏清理路径 | [按任务定点故障注入](references/debug-tools-guide.md#83-error-paths-deterministic-per-task-fault-injection) |
+| 偶发症状之前发生了什么 | [条件触发飞行记录器](references/debug-tools-guide.md#84-rare-symptoms-conditional-flight-recorder) |
+| 谁阻止了 RCU grace period 完成 | [同轮 GP 差分判读](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period) |
+
+这些方法补充现有越界/UAF、竞争、泄漏与锁序工具。先分析已有证据；需要活系统
+实验时仍须遵守下方安全契约。参考文件为英文，按用户语言解释即可。
 
 ## 活系统安全契约
 
@@ -385,6 +400,7 @@ crash> list -h <addr> -s dentry.d_name.name
 | `references/advanced-commands.md` | 高级命令详解：list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore 文件格式、ELF 结构、VMCOREINFO |
 | `references/case-studies.md` | 调试案例，含有来源的 GRO 偏移、InfiniBand 重复释放、writeback/reclaim 证据链（Case 13–15） |
+| `references/debug-tools-guide.md` | 工具选择；KMSAN 来源链、DMA 生命周期、按任务故障注入与条件轨迹捕获（§8） |
 | `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
 | `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |
 | `references/arm64-lock-analysis.md` | ARM64 mutex/rwsem 锁指针的汇编与栈恢复，以及 mutex owner 解码 |

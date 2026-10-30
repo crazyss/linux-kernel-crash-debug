@@ -36,6 +36,10 @@ When crash utility analysis cannot pinpoint the root cause, consider these advan
 | **UBSAN** | Undefined behavior detection | Yes (CONFIG_UBSAN) | Development |
 | **SLUB Debug** | Slab corruption detection | Yes (CONFIG_SLUB_DEBUG) | Development |
 | **Lockdep** | Locking issue detection | Yes (CONFIG_LOCKDEP) | Development |
+| **KMSAN** | Uninitialized-value origin tracking | Yes (CONFIG_KMSAN) | Disposable lab (§8.1) |
+| **DMA API debug** | DMA mapping lifecycle validation | If not already configured | Lab (§8.2) |
+| **fail-nth** | Deterministic error-path testing | Configured fault-injection facilities | Human-operated lab (§8.3) |
+| **Event triggers** | Freeze a bounded pre-symptom trace | Configured tracing/events | Approved capture (§8.4) |
 
 ---
 
@@ -407,6 +411,176 @@ $ echo > /sys/kernel/debug/tracing/set_ftrace_filter
 ```
 
 ---
+
+## 8. Targeted Playbooks: Close a Specific Evidence Gap
+
+These recipes add evidence the basic tools above do not provide. They are
+investigation plans, not experiments executed by this project. Check the
+target kernel's configuration and interfaces; upstream documentation does not
+guarantee an older distribution exposes them.
+
+### 8.1 Uninitialized Values: KMSAN Origin Tracking
+
+**Use when:** a pointer, length, return value, or partially filled structure
+contains unexplained bytes, without evidence of an OOB/UAF access.
+
+**Smallest experiment:** with exact-host/build/workload authorization, use a
+disposable supported Clang-built kernel with `CONFIG_KMSAN=y` and parameter /
+return-value checks retained where supported. Current upstream documentation
+supports the x86_64 runtime; check its toolchain requirements against the target
+tree. Keep the original boot entry and have the operator restore it after the
+bounded reproducer. KMSAN's memory and CPU cost make it unsuitable for production.
+
+**Read the report backwards:** start at the uninitialized **use**, follow
+`Uninit was stored` propagation records, then find the allocation or local
+variable **origin** and the reported byte range. Audit the initialization and
+error branches supplying those bytes. The final consumer need not be the code
+that omitted initialization. Retest the same path after fixing that omission.
+
+**Limit:** origins have four-byte granularity and bounded history. Missing
+instrumentation and inline assembly can affect tracking; a silent run does not
+prove initialization of every path. Do not replace the investigation with a
+sanitizer suppression. [Upstream KMSAN guide](https://docs.kernel.org/dev-tools/kmsan.html).
+
+### 8.2 Device Corruption: DMA API Lifecycle Checks
+
+**Use when:** corruption follows device I/O, unmap, completion, or reset, and
+CPU-access instrumentation has not identified the writer.
+
+**Start read-only:** preserve the first DMA API warning and existing IOMMU fault
+records, including timestamps, requester/device identity, DMA address, access
+type, and reason. On a kernel with `CONFIG_DMA_API_DEBUG=y`, read
+`/sys/kernel/debug/dma-api/{disabled,error_count,driver_filter,num_errors}`.
+`disabled=Y` means checking is no longer active. Only the first error is printed
+by default; silence after it does not mean errors stopped.
+
+**Smallest experiment:** only in an explicitly authorized lab window, save the
+controls, filter diagnostic output to the suspect **driver name** with
+`driver_filter`, and use a small finite `num_errors` allowance. Capture one
+bounded workload into a protected case directory, then restore the controls in
+the same session. The filter limits diagnostic output, not all tracking costs;
+do not enable unlimited error printing or dump every device's mappings.
+
+**Close the lifecycle:** compare map/unmap API, device, handle, size, direction,
+error checks, ownership synchronization, and completion-before-free ordering.
+For `dma_unmap_sg()`, check the **original input nents**, not the mapped segment
+count returned by `dma_map_sg()`. Correlate existing translated-IOMMU faults
+with this timeline; requester/address formats are architecture-specific.
+
+**Limit:** bookkeeping violations support a driver-API defect; they do not by
+themselves prove which device write corrupted an object. Valid mapped DMA can
+still corrupt data. Absence of a report or IOMMU fault does not exclude that
+case; changing IOMMU mode is a separate experiment, not a fix.
+[DMA API debugging, Part III](https://docs.kernel.org/core-api/dma-api.html),
+[x86 IOMMU fault records](https://docs.kernel.org/arch/x86/iommu.html).
+
+### 8.3 Error Paths: Deterministic Per-Task Fault Injection
+
+**Use when:** cleanup fails only after an allocation error, and ordinary memory
+pressure makes the failure difficult to isolate. This tests the error path
+behind Case 14, rather than rediscovering its poison pattern.
+
+**Human-operated lab only:** obtain exact-host/action authorization for a
+disposable fixture, fixed attempt/time caps, console recovery, and protected
+logs. Verify the target exposes `/proc/self/task/<tid>/fail-nth` and the needed
+facilities, such as `CONFIG_FAILSLAB` or `CONFIG_FAIL_PAGE_ALLOC`. Save any
+capability-specific filters before changing them; never apply global random
+failure injection to an incident host.
+
+Adapt the upstream single-syscall harness with this bounded sequence:
+
+```text
+open the test thread's fail-nth control before arming it
+for N = 1 .. approved_attempt_cap, within approved_time_cap:
+    reset fixture; arm N; execute exactly one target syscall
+    immediately copy its return value and errno before any other syscall
+    read remaining count; disarm with 0 before cleanup or logging
+    save N, remaining count, copied result/errno, and detector evidence
+    release successful resources; stop on a finding or an unconsumed count
+on every exit: disarm the test thread and restore modified filters
+```
+
+**Crucial semantics:** N counts eligible fault-injection opportunities in that
+thread, not necessarily allocations of one type. `fail-nth` takes precedence
+over generic probability, interval, times, and task-filter settings; those are
+not a reliable kill switch for it. Capability-specific exclusions still apply
+(for example, `ignore-gfp-wait` can exclude sleepable allocations).
+Allocations deferred to a worker are outside the calling thread's sequence.
+
+**Prove the path:** an armed count reaching zero means a fault was injected;
+a positive remainder means this attempt did not reach it. A returned `ENOMEM`
+alone is not a cleanup defect. Preserve the injected failure plus the invalid
+free, reference imbalance, or other invariant violation, then replay the same
+case with injection off and after the candidate fix. Confirm the failing site
+from its diagnostic stack; consuming N alone does not identify that site. Do not use a shell child
+to arm `/proc/self` for an unrelated reproducer thread.
+[Fault injection and the upstream fail-nth harness](https://docs.kernel.org/fault-injection/fault-injection.html).
+
+### 8.4 Rare Symptoms: Conditional Flight Recorder
+
+**Use when:** an observable event precedes the failure, but ordinary tracing
+overwrites its lead-up. A one-shot `traceoff` trigger freezes the normal ring
+buffer when its predicate matches. This differs from streaming `trace_pipe`.
+
+**Human-run example, only on the explicitly authorized host/window:** verify
+tracefs is already mounted here, both events exist, the exit event's `format`
+contains `pid`, and `global` is an available clock. Budget 256 KiB per CPU and
+30 seconds of capture. Keep the reproducer waiting until tracing is armed;
+select its task PID as seen by the target kernel, not a container-local PID.
+The fresh instance isolates configuration from existing tracing sessions.
+
+```bash
+(
+set -eu
+umask 077
+target_pid=1234  # Replace with the agreed reproducer task before running.
+out_dir=$(mktemp -d /tmp/kernel-trace.XXXXXX)
+inst=/sys/kernel/tracing/instances/crash-window-$$
+mkdir "$inst"
+cleanup() {
+    printf '0\n' > "$inst/tracing_on" || :
+    printf '%s\n' '!traceoff' > "$inst/events/sched/sched_process_exit/trigger" || :
+    printf '0\n' > "$inst/events/enable" || :
+    rmdir "$inst" || printf 'Cleanup incomplete: %s\n' "$inst" >&2
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+printf '0\n' > "$inst/tracing_on"
+printf 'global\n' > "$inst/trace_clock"
+printf '256\n' > "$inst/buffer_size_kb"
+printf '1\n' > "$inst/events/sched/sched_switch/enable"
+printf '1\n' > "$inst/events/sched/sched_process_exit/enable"
+printf 'traceoff:1 if pid == %s\n' "$target_pid" > "$inst/events/sched/sched_process_exit/trigger"
+cat "$inst/trace_clock" > "$out_dir/clock.txt"
+cat "$inst/events/sched/sched_process_exit/format" > "$out_dir/exit-format.txt"
+printf '1\n' > "$inst/tracing_on"
+printf 'Armed for task %s; release the waiting reproducer now.\n' "$target_pid"
+sleep 30
+printf '0\n' > "$inst/tracing_on"
+cat "$inst/events/sched/sched_process_exit/trigger" > "$out_dir/trigger.txt"
+cat "$inst/trace" > "$out_dir/trace.txt"
+printf 'Saved: %s\n' "$out_dir"
+)
+```
+
+**Read the capture:** check whether the one-shot count was consumed, then
+inspect event ordering and buffer overwrite/loss indicators. An exit is only
+the example stop condition; normal exits also match. Replace it with a verified
+event/field predicate for the actual symptom. A synchronized clock helps
+cross-CPU ordering but adds overhead; clock changes clear the buffer, so choose
+it before capture. The ring may contain much less than 30 seconds of history.
+These scheduler events establish scheduling history only. To test an async
+driver lifetime, also select existing submit/complete/cancel/free events by
+request identity, including worker context; exit alone does not imply a defect.
+
+**Limit:** an unconsumed trigger means the condition was not observed in this
+window, not that the bug is absent. Ordinary trace buffers do not survive a
+crash/reboot by themselves. If tracing must continue after the first hit, use
+`snapshot:1 if ...` instead, with snapshot support and its extra buffer; read
+`snapshot` and remove `!snapshot` during cleanup. Choose one action, and arrange
+persistent or remote capture separately if the host cannot remain readable.
+[Event trigger semantics](https://docs.kernel.org/trace/events.html),
+[ftrace buffers, clocks, and snapshots](https://docs.kernel.org/trace/ftrace.html).
 
 ## Decision Tree: Which Tool to Use?
 

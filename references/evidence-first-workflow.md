@@ -226,6 +226,29 @@ or automate it. Hand the final trigger to an authorized human using an approved
 drill only after kdump, dump storage, out-of-band console access, workload
 evacuation, and recovery procedures have all been verified.
 
+#### 5.2.1 RCU Stalls: Compare the Same Grace Period
+
+Use saved RCU splats before changing any detector. Group repeated warnings by
+RCU flavor and **the same `g=` grace-period sequence**, then compare the named
+CPU/task and its progress fields:
+
+| Evidence | Working hypothesis and next check |
+|---|---|
+| `detected by N` | N reported the stall; analyze the listed blocking CPUs / `P<pid>` tasks first, not just N's detection stack. |
+| `P<pid>` | A preemptible RCU reader task can block completion; check scheduling starvation and affinity as well as its read-side critical section. |
+| `0 ticks this GP` | No scheduling-clock ticks were observed for this GP; investigate IRQ-disabled regions and timer/interrupt progress, not automatically hardware failure. |
+| `softirq=a/b`, with b unchanged across same-GP reports | RCU softirq processing is not progressing; consider spinning/disabled IRQs and, on RT kernels, starvation of the softirq thread. |
+| Repeated stacks share a stable upper section | Prioritize that stable code; distinguish it from varying interrupt/detector frames. |
+| `All QSes seen` plus `kthread starved for` | Shift toward grace-period kthread starvation: the required quiescent states were already observed. |
+
+The useful output is a differential: **GP → blocking CPU/PID → counter changes
+→ stable stack → reader stall, IRQ/timer failure, or scheduler starvation**.
+Use the target version's field definitions; do not hard-code `idle=` bit layouts
+across kernels. No warning does not exclude a hang: this detector needs an
+active grace period. Corroborate the selected hypothesis with existing IRQ,
+scheduler, or task evidence; any new tracing follows the authorization and
+overhead rules above. [RCU stall warning guide](https://docs.kernel.org/RCU/stallwarn.html).
+
 ### 5.3 Memory corruption and leaks
 
 Choose instrumentation by environment and hypothesis:
@@ -290,6 +313,10 @@ leak.
 | KFENCE | Long-running sampled production detection | Sampling trades coverage for low overhead |
 | KCSAN | Data-race detection | Sampling and missing instrumentation can hide or obscure races |
 | lockdep | Lock ordering and context validation | Needs debug config and only reasons over observed chains/classes |
+
+For uninitialized values, device-DMA corruption, allocation-error cleanup, or
+rare pre-failure events, use the [targeted playbooks in the tools guide](debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap).
+They specify the evidence each experiment adds and the limits of a silent run.
 
 Use `drgn -c /path/to/vmcore` when the same structure traversal must be rerun
 across many dumps. Keep the script, its version, and its output with the case so

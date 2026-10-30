@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-30
+
+### Added
+- Five evidence playbooks absent from the previous skill: KMSAN origin tracking, DMA API lifecycle checks, deterministic per-task fault injection, conditional trace freezing, and same-grace-period RCU stall comparison.
+- Exa-researched upstream references, experiment prerequisites, interpretation limits, and cleanup guidance for the new methods.
+
+### Changed
+- Routed both English and Chinese entry points to the new playbooks while retaining the existing 13-file runtime whitelist and offline wrapper boundary.
+
 ## [1.4.5] - 2026-10-08
 
 ### Added
@@ -156,7 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...v1.5.0
 [1.4.5]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.2...v1.4.3

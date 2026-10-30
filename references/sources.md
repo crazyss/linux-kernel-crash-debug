@@ -80,6 +80,23 @@ kernel.org 文档为主：
 
 ---
 
+### 1.5 定点取证新打法（2026-10-30，Exa 检索与一手资料核对）
+
+以下补充用于 `debug-tools-guide.md` §8 和 `evidence-first-workflow.md`
+§5.2.1；已有 KASAN/KFENCE/KCSAN、SLUB、基础 ftrace 和二分不计为新增方法。
+
+- **[KMSAN](https://docs.kernel.org/dev-tools/kmsan.html)**：未初始化值的 use/store/origin 链、字节范围、平台与插桩限制。
+- **[DMA API, Part III: Debugging drivers' use of the DMA-API](https://docs.kernel.org/core-api/dma-api.html)**：`dma-api` 控制与计数、映射/解映射约束，含 scatter-gather 的原始 `nents` 规则。
+- **[x86 IOMMU Support](https://docs.kernel.org/arch/x86/iommu.html)**：按设备、地址与原因核对 IOMMU fault；不把架构格式推广到其他平台。
+- **[Fault injection infrastructure](https://docs.kernel.org/fault-injection/fault-injection.html)**：`fail-nth` 单线程单 syscall 用法、优先级、能力特定排除项，以及上游 C harness。
+- **[Event tracing: triggers](https://docs.kernel.org/trace/events.html)**：`traceoff:1` / `snapshot:1`、条件、计数与移除语法。
+- **[ftrace](https://docs.kernel.org/trace/ftrace.html)**：私有 instance、同步 clock、每 CPU 环形缓冲与 snapshot 语义。
+- **[RCU stall warnings](https://docs.kernel.org/RCU/stallwarn.html)**：同轮 GP 的 CPU/task、softirq 进度与稳定栈比较，以及 GP kthread 饥饿。
+
+这些是来源核对后的操作方案；本轮未执行活系统插桩、故障注入或内核复现。
+
+---
+
 ## 2. 经典技术文章 (Articles)
 
 ### 2.1 IBM developerWorks（中国站，已迁移）

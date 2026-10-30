@@ -11,6 +11,7 @@ Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that 
 - **Complete Command Reference**: All crash utility commands with examples
 - **Advanced Techniques**: Memory analysis, linked list traversal, address translation
 - **Production Detection**: pstore/ramoops, watchdogs, KFENCE, KCSAN, and drgn automation
+- **Targeted Evidence Playbooks**: KMSAN origins, DMA mapping checks, per-task fault injection, conditional trace capture, and RCU stall comparison ([recipes](references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap), [RCU](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period))
 - **Real-world Cases**: Kernel BUG, deadlock, OOM, NULL pointer, stack overflow
 - **vmcore Knowledge**: ELF format, VMCOREINFO, dump file types
 
