@@ -217,6 +217,15 @@ npx --yes clawhub@0.23.3 skill publish "$publish_dir" \
 
 Observed ClawHub behavior and stop conditions:
 
+- **Project memory — normal publication latency (user-confirmed 2026-11-10):**
+  upload acknowledgement, public version visibility, scanner completion, and
+  Skill Card availability are separate asynchronous stages. An accepted version
+  can temporarily be absent from `/versions` or return a version-specific 404;
+  later, security may be clean while `card.missing` remains. Delay alone is not
+  an upload failure. Continue low-frequency checks of the same version, preserve
+  its IDs/fingerprint, and do not retry or create a patch release just to escape
+  the wait. v1.5.1 was first observed fully passing about 14 minutes after its
+  server creation timestamp; this is an observation, not a deadline or SLA.
 - A publish can remain on a spinner for several minutes and later return
   `pending-publication`. This means the artifact and credential were accepted;
   do not upload the same version again.
