@@ -30,7 +30,7 @@ A clear and concise description of what actually happened.
 - OS: [e.g. RHEL 8, Ubuntu 22.04]
 - Crash version: [e.g. 8.0.1]
 - Kernel version: [e.g. 5.14.0]
-- Claude Code version: [e.g. 1.0.0]
+- Agent/runtime and version: [name and version]
 
 ## Additional Context
 

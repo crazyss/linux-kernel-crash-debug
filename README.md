@@ -2,7 +2,7 @@
 
 [中文文档](README_CN.md)
 
-Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that helps you debug Linux kernel crashes using the crash utility.
+**Linux Kernel Crash Debug Skill** guides evidence-first Linux kernel crash analysis using the crash utility, with workflows, reference material, and an offline analysis wrapper for agents.
 
 ## Features
 
@@ -19,12 +19,15 @@ Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that 
 
 Download and verify `linux-kernel-crash-debug.skill` from
 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest),
-then extract all 13 runtime files into an empty personal-skill directory:
+then extract all 13 runtime files into an empty directory:
 
 ```bash
-mkdir -p ~/.claude/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
+mkdir -p ./linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ./linux-kernel-crash-debug
 ```
+
+Place the complete directory in your agent's skill directory. See
+[installation examples](SKILL.md#installation) for platform-specific locations.
 
 ## Quick Start
 
@@ -53,7 +56,7 @@ linux-kernel-crash-debug/
 ├── README_CN.md                # Chinese documentation
 ├── CONTRIBUTING.md             # Contribution guide
 ├── LICENSE                     # MIT License
-├── CLAUDE.md                   # Claude Code project config
+├── CLAUDE.md                   # Repository assistant guidance
 ├── scripts/                    # Utility scripts
 │   └── agent-crash.sh          # Agent-safe crash wrapper
 ├── references/                 # Detailed documentation
@@ -70,7 +73,7 @@ linux-kernel-crash-debug/
 
 ## Usage
 
-This skill triggers when you mention:
+Use this skill for Linux kernel debugging tasks such as:
 - kernel crash / kernel panic
 - vmcore analysis
 - crash utility

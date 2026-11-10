@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-10
+
+### Changed
+- Describe the skill as general Linux kernel crash-debugging guidance for agents, with platform-neutral README installation and usage wording.
+- Align both language entry points, maintainer documentation, and the issue template while preserving platform-specific installation examples and source attribution.
+
 ## [1.5.1] - 2026-11-10
 
 ### Added
@@ -179,7 +185,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...v1.5.0
 [1.4.5]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...v1.4.5

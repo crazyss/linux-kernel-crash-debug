@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Claude Code skill repository for Linux kernel crash debugging using the crash utility. The skill provides comprehensive guidance for analyzing kernel crashes, panics, and vmcore dumps.
+This repository provides a Linux kernel crash-debugging skill using the crash utility. It includes evidence-first workflows, references, and an offline analysis wrapper for agents analyzing kernel crashes, panics, and vmcore dumps.
 
 ## Repository Structure
 
@@ -49,7 +49,7 @@ unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debu
 
 ## Skill Architecture
 
-The skill follows the standard Claude Code skill format:
+The skill consists of a Markdown entry point and supporting files:
 - **YAML frontmatter**: `name` and `description` fields control skill identification and triggering
 - **Description field**: Primary triggering mechanism - should be "pushy" to avoid undertriggering
 - **Body**: Step-by-step debugging workflow, command reference tables, and case studies

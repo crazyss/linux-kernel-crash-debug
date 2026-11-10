@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-欢迎使用 **Linux Kernel Crash Debug Skill**！这是一个用于 Claude Code 的技能，帮助你使用 crash 工具调试 Linux 内核崩溃。
+**Linux Kernel Crash Debug Skill** 提供基于 crash 工具的 Linux 内核崩溃分析流程、参考资料和供 agent 使用的离线分析封套，强调证据优先。
 
 ## 功能特性
 
@@ -21,9 +21,12 @@
 下载并核验 `linux-kernel-crash-debug.skill`，在空目录解压全部 13 个运行时文件：
 
 ```bash
-mkdir -p ~/.claude/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
+mkdir -p ./linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ./linux-kernel-crash-debug
 ```
+
+将完整目录放入所用 agent 的 skill 目录。各平台的目录示例见
+[安装说明](SKILL_CN.md#安装)。
 
 ## 快速开始
 
@@ -61,7 +64,7 @@ linux-kernel-crash-debug/
 
 ## 使用方法
 
-当你在 Claude Code 中提及以下内容时，此技能会自动触发：
+此技能适用于以下 Linux 内核调试任务：
 - kernel crash / kernel panic
 - vmcore 分析
 - crash utility

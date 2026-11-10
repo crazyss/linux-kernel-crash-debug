@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.5.1
+version: 1.5.2
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, KMSAN, DMA API debugging, fail-nth, conditional trace capture, RCU stalls, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
@@ -488,7 +488,7 @@ For detailed information, refer to the following reference files:
 Usage:
 ```console
 crash> help <command>        # Built-in help
-# Or ask Claude to view reference files
+# Or ask your agent to view reference files
 ```
 
 ## Common Errors
