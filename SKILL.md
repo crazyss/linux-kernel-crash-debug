@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.5.0
+version: 1.5.1
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, KMSAN, DMA API debugging, fail-nth, conditional trace capture, RCU stalls, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 metadata:
   openclaw:
@@ -21,8 +21,13 @@ This skill guides you through analyzing Linux kernel crash dumps using the crash
 Install only when the user requests installation. These commands place skill files in the user workspace; they do not authorize services, startup hooks, or background jobs.
 
 ### Claude Code
+
+Extract the verified release archive with all 13 runtime files; the scripts
+and references are required alongside `SKILL.md`.
+
 ```bash
-claude skill install linux-kernel-crash-debug.skill
+mkdir -p ~/.claude/skills/linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
 ```
 
 ### OpenClaw
@@ -32,14 +37,21 @@ clawhub install linux-kernel-crash-debug
 
 # Method 2: Manual installation
 mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
+unzip linux-kernel-crash-debug.skill -d ~/.openclaw/workspace/skills/linux-kernel-crash-debug
 ```
+
+Use an empty destination for a new installation; handle an existing installation
+as an explicit upgrade. Copying only the manifest leaves its helpers missing.
+[Claude Code skill locations](https://code.claude.com/docs/en/skills).
 
 ## Quick Start
 
 **Language choice:** Respond in the user’s preferred language. `SKILL_CN.md` and Chinese references are optional companion material; translate relevant explanations when requested. Source titles retain their original language for attribution.
 
 ### Starting a Session
+
+These are human reference commands. Agents use the offline wrapper below;
+raw RAM requires the loader/format checks in `references/vmcore-format.md`.
 
 ```bash
 # Analyze a dump file
@@ -48,8 +60,7 @@ crash vmlinux vmcore
 # Debug a running system
 crash vmlinux
 
-# Raw RAM dump
-crash vmlinux ddr.bin --ram_start=0x80000000
+# Raw RAM loading is format- and tool-version-specific; see the reference above.
 ```
 
 ### Core Debugging Workflow
@@ -74,6 +85,11 @@ GRO header-offset reconstruction, InfiniBand error-path double free, and
 filesystem writeback/reclaim deadlock. Treat a bisect result as a candidate
 trigger, an NMI frame as interrupted context, and collection overhead as a
 possible contributor to stalls; verify each before assigning a root cause.
+
+For suspected single-bit corruption of an ARM64 pointer, follow the
+[candidate-validation method](references/evidence-first-workflow.md#511-arm64-single-bit-pointer-corruption-hypotheses)
+and [Case 16](references/case-studies.md#case-16-arm64-single-bit-pointer-corruption-hypothesis).
+A plausible reconstructed pointer does not establish DDR failure.
 
 ### When the first pass leaves an evidence gap
 
@@ -116,7 +132,7 @@ If you are an AI/Agent using this skill, **do not invoke `crash` interactively**
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - Runs `sys`, a high-signal log index, panic/all-CPU backtraces, and module inventory.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - Top 15 memory checks.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - Pulls UN task stacks.
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Assembly regression.
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Matching disassembly and stack-frame data.
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - Pattern match memory poisons.
 2. **Restricted primitives**: Use `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`, `backtrace <pid>`, or `disassemble <symbol>` when macros are insufficient. `run` is removed. Both input paths are mandatory; live `/proc`, `/sys`, `/dev` inputs, root execution, and local/home `.gdbinit` files are rejected. Startup `.crashrc` files are disabled. No arbitrary crash/GDB commands, shell escapes, pipelines, redirection, command files, or extensions are exposed by this wrapper. Memory reads are limited to 1..256 words.
    Keep dumps and collected output access-controlled. Use a trusted installed `crash` executable in an isolated analysis environment; the wrapper is not an OS sandbox or a defense against parser vulnerabilities in malformed dumps/symbol files. If a needed query is unsupported, report the evidence gap and hand a precise offline query to an authorized human rather than bypassing the wrapper.
@@ -137,6 +153,10 @@ If you are an AI/Agent using this skill, **do not invoke `crash` interactively**
 
 Package installation changes the host and may need administrator privileges. Require explicit authorization for the exact host and packages; prefer already-installed tools. Offline dump analysis runs as an unprivileged account.
 
+Package examples use the current host's `uname -r`. For a dump from another
+host or boot, query/install symbols for the captured kernel release and build,
+not the analysis host's running kernel.
+
 #### Anolis OS / Alibaba Cloud Linux
 
 ```bash
@@ -147,7 +167,7 @@ sudo dnf install crash
 sudo dnf install kernel-debuginfo-$(uname -r)
 
 # Install additional analysis tools
-sudo dnf install gdb readelf objdump makedumpfile
+sudo dnf install gdb binutils makedumpfile
 
 # Optional: Install kernel-devel for source code reference
 sudo dnf install kernel-devel-$(uname -r)
@@ -167,7 +187,7 @@ sudo dnf debuginfo-install kernel-$(uname -r)
 sudo apt install crash kdump-tools kexec-tools gdb binutils makedumpfile
 # Debian and Ubuntu use different debug-symbol repositories/package suffixes;
 # query the exact running-kernel package before installing it.
-apt-cache search "linux-image-$(uname -r).*dbg\|linux-image-$(uname -r).*dbgsym"
+apt-cache search --names-only "linux-image-$(uname -r).*(dbg|dbgsym)"
 ```
 
 #### SLES / openSUSE
@@ -206,7 +226,7 @@ crash /usr/lib/debug/lib/modules/$(uname -r)/vmlinux /proc/kcore
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `sys` | System info/panic reason | `sys`, `sys -i` |
+| `sys` | System info/panic reason; `-i` shows DMI | `sys`, `sys -i` |
 | `log` | Kernel message buffer | `log`, `log \| tail` |
 | `bt` | Stack backtrace | `bt`, `bt -a`, `bt -f` |
 | `struct` | View structures | `struct task_struct <addr>` |
@@ -288,7 +308,7 @@ crash> < commands.txt
 | Aspect | x86_64 | ARM64 |
 |--------|--------|-------|
 | crash command | `crash vmlinux vmcore` | `crash vmlinux vmcore`; add `-m` only as a recovery path |
-| KASLR | Usually auto-handled from VMCOREINFO | Usually auto-handled; derive `-m kaslr=<offset>` only for raw/damaged metadata |
+| KASLR | Usually auto-handled from VMCOREINFO | Usually auto-handled; explicit `--kaslr=<offset>` requires verified ARM64 tool support |
 | Virtual address bits | fixed for the analyzed build | VMCOREINFO first; `-m vabits_actual=<N>` is a fallback |
 | Physical base | `phys_base` from VMCOREINFO | VMCOREINFO first; `-m phys_offset=<addr>` is a fallback |
 | VA-PA offset | `__START_KERNEL_map` | VMCOREINFO first; `-m kimage_voffset=<val>` is a fallback |
@@ -305,13 +325,15 @@ crash_arm64 \
   -m vabits_actual=39 \
   -m phys_offset=0x80000000 \
   -m kimage_voffset=0xffffffc000000000 \
-  -m kaslr=0x0 \
+  --kaslr=0x0 \
   vmlinux vmcore
 ```
 
 > First try `crash vmlinux vmcore`. Use explicit values only when VMCOREINFO is
-> absent/damaged or the input is raw RAM. `kaslr=0` means KASLR was disabled;
-> never assume that value or reuse another boot's parameters.
+> absent/damaged or the input is raw RAM, and verify the installed tool's ARM64
+> support for `--kaslr`. A zero offset must be established from this boot's
+> evidence; never assume it or reuse another boot's parameters. `-m kaslr` is
+> not an upstream ARM64 override.
 
 ## Typical Debugging Scenarios
 
@@ -321,7 +343,7 @@ crash_arm64 \
 crash> sys                    # Confirm panic
 crash> log | tail -50         # View logs
 crash> bt                     # Call stack
-crash> bt -f                  # Expand frames for parameters
+crash> bt -f                  # Raw stack-frame data; recover arguments from matching assembly
 crash> struct <type> <addr>   # Inspect data structures
 ```
 
@@ -381,7 +403,10 @@ crash> bt <owner_pid>
 
 > For exact FP/SP arithmetic, `stp` slot ordering, owner masking, and failure checks, read `references/arm64-lock-analysis.md`. For a complete rwsem example, read Case 11 in `references/case-studies.md`.
 
-> **x86_64 equivalent**: Use RBP chain with `bt -f`. Note that with `-fomit-frame-pointer`, this technique may fail; in that case use `bt -F` or look for explicit stack frames.
+> **x86_64 equivalent**: Inspect matching disassembly and the unwinder's saved
+> stack state. `bt -f` shows frame data; `bt -F` symbolizes that data. Neither
+> recreates optimized-away arguments or missing registers. A manual RBP walk
+> requires preserved frame pointers; other builds need supported unwind metadata.
 
 ### Memory Leak Diagnostic (Three-Layer Check)
 
@@ -395,7 +420,7 @@ Preserve the current output before clearing detector state.
 
 ```console
 # === Layer 1: /proc 三件套 (read from running system or captured info) ===
-# MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
+# Falling MemAvailable with rising SUnreclaim suggests slab growth; verify retention.
 cat /proc/meminfo
 cat /proc/slabinfo
 cat /proc/buddyinfo
@@ -406,15 +431,15 @@ cat /proc/buddyinfo
 cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
 cat /sys/kernel/debug/slab/kmalloc-512/free_traces
 
-# === Layer 3: >8K allocations (page_owner) ===
-# SUnreclaim rises but slabinfo flat → kmalloc > 8K uses alloc_pages directly
+# === Layer 3: page allocations not explained by slab growth (page_owner) ===
+# Large kmalloc allocations can bypass slab; the cutoff depends on PAGE_SIZE/build.
 # Enable CONFIG_PAGE_OWNER + boot with page_owner=on
 # If page_owner is not already enabled, use an approved maintenance runbook;
 # do not enable it as part of automated triage.
 # Periodic dumps, then diff:
-./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
-./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
-# Compare begin.txt vs end.txt - rising stacks are leaks
+./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt begin.txt
+./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt end.txt
+# Compare retained allocations across equivalent workload phases; growth is a lead, not proof of a leak.
 
 # === Alternative: kmemleak ===
 # CONFIG_DEBUG_KMEMLEAK + kmemleak=on bootarg
@@ -425,8 +450,8 @@ cat /sys/kernel/debug/kmemleak
 ### Chained Queries
 
 ```console
-crash> bt -f                  # Get pointers
-crash> struct file.f_dentry <addr>
+crash> bt -f                  # Recover pointer candidates using matching assembly
+crash> struct file.f_path.dentry <addr>
 crash> struct dentry.d_inode <addr>
 crash> struct inode.i_pipe <addr>
 ```
@@ -434,7 +459,7 @@ crash> struct inode.i_pipe <addr>
 ### Batch Slab Inspection
 
 ```console
-crash> kmem -S inode_cache | grep counter | grep -v "= 1"
+crash> kmem -S inode_cache     # Slab metadata, not inode reference-count validation
 ```
 
 ### Kernel Linked List Traversal
@@ -452,7 +477,7 @@ For detailed information, refer to the following reference files:
 |------|---------|
 | `references/advanced-commands.md` | Advanced commands: list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore file format, ELF structure, VMCOREINFO |
-| `references/case-studies.md` | Debugging cases, including sourced GRO offset, InfiniBand double-free, and writeback/reclaim evidence chains (Cases 13–15) |
+| `references/case-studies.md` | Debugging cases, including sourced GRO offset, InfiniBand double-free, writeback/reclaim, and ARM64 single-bit pointer evidence chains (Cases 13–16) |
 | `references/debug-tools-guide.md` | Detector selection; KMSAN origins, DMA lifecycle checks, per-task failure injection, and conditional trace capture (§8) |
 | `references/kdump-setup-guide.md` | **NEW** End-to-end kdump configuration (x86_64 + ARM64, crashkernel syntax, sysrq triggers) |
 | `references/arm64-crash-params.md` | **NEW** ARM64-specific crash address parameters (vabits_actual, phys_offset, kimage_voffset, kaslr) |
@@ -495,19 +520,20 @@ The following commands can cause system damage or data loss:
 
 🔒 **Sensitive Data Handling**
 
-- **vmcore files** contain complete kernel memory, potentially including:
+- **vmcore files** may contain kernel and process memory, potentially including:
   - User process memory and credentials
   - Encryption keys and secrets
   - Network connection data and passwords
 - **Access control**: Restrict vmcore file access to authorized personnel
 - **Secure storage**: Store dump files in encrypted or access-controlled directories
-- **Secure disposal**: Use `shred` or secure delete when disposing of vmcore files
+- **Disposal**: Follow the storage system's approved retention and sanitization
+  process. `shred` cannot guarantee erasure on SSDs, snapshots, or copy-on-write storage.
 
 🛡️ **Best Practices**
 
 1. Only analyze vmcore files in isolated/test environments when possible
 2. Never share raw vmcore files publicly without sanitization
-3. Consider using `makedumpfile -d` to filter sensitive pages before analysis
+3. Record `makedumpfile -d` filtering and resulting evidence gaps; filtering alone does not prove sanitization
 4. Document and audit all crash analysis sessions for compliance
 
 ## Important Notes

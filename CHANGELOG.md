@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-10
+
+### Added
+- ARM64 single-bit pointer-corruption candidate validation, including effective-address reconstruction, XOR checks, same-boot address/object semantics, and limits on DDR hardware attribution.
+- A sourced `generic_file_vm_ops` case study distinguishing an operations-table pointer, callback-slot address, and stored callback value, with routing from both language entry points.
+
+### Fixed
+- Preserve wrapper query failures and bounded partial diagnostics across every macro; consume complete query output before display filtering, and clean up private temporary output.
+- Rank OOM candidates by RSS and allocated slab-object bytes; limit poison matches to complete data words and treat matches as hypotheses.
+- Correct ARM64 KASLR overrides, runtime address derivation, raw-dump syntax, `sys` option meanings, and dump-conversion limitations against upstream sources.
+- Correct distribution-specific kdump configuration, debug-symbol searches, page-owner processing, and non-destructive tracing cleanup.
+- Install complete skill bundles at documented personal-skill locations instead of copying only the manifest or invoking an undocumented installer command.
+- Remove unsupported causal conclusions from legacy examples, including pointer-search ownership, stack line counts, poison values, and lock waits.
+
 ## [1.5.0] - 2026-10-30
 
 ### Added
@@ -165,7 +179,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...v1.5.0
 [1.4.5]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.4...v1.4.5
 [1.4.4]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.3...v1.4.4

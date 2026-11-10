@@ -31,7 +31,7 @@ When crash utility analysis cannot pinpoint the root cause, consider these advan
 | **KASAN** | Memory error detection | Yes (CONFIG_KASAN) | Development |
 | **KFENCE** | Sampled memory error detection | Yes (CONFIG_KFENCE) | Production / fleet |
 | **KCSAN** | Data-race detection | Yes (CONFIG_KCSAN) | Testing / staging |
-| **Kprobes** | Dynamic function tracing | No (module only) | Lab / approved maintenance |
+| **Kprobes** | Dynamic function tracing | If probe support is not already configured | Lab / approved maintenance |
 | **Kmemleak** | Memory leak detection | Yes (CONFIG_DEBUG_KMEMLEAK) | Development |
 | **UBSAN** | Undefined behavior detection | Yes (CONFIG_UBSAN) | Development |
 | **SLUB Debug** | Slab corruption detection | Yes (CONFIG_SLUB_DEBUG) | Development |
@@ -50,7 +50,7 @@ When crash utility analysis cannot pinpoint the root cause, consider these advan
 - **Out-of-bounds (OOB)** memory accesses
 - **Use-after-free (UAF)** errors
 - **Double-free** errors
-- **Use-after-return (UAR)** errors
+- Stack/global out-of-bounds accesses in supported modes; coverage differs by mode
 
 ### Kernel Configuration
 
@@ -82,10 +82,10 @@ CONFIG_PAGE_OWNER=y            # boot with page_owner=on
 # Verify KASAN is enabled
 $ grep KASAN /boot/config-$(uname -r)
 
-# LAB ONLY: test_kasan intentionally exercises invalid accesses. Obtain
-# explicit authorization for a disposable test kernel before loading it.
-$ sudo modprobe test_kasan
-$ sudo modprobe -r test_kasan  # cleanup when built as an unloadable module
+# Human-operated disposable lab only: KASAN's KUnit tests deliberately
+# exercise invalid accesses and may panic. Agents must not load/run them.
+# Current upstream uses CONFIG_KUNIT + CONFIG_KASAN_KUNIT_TEST and
+# kasan_test.ko; use the matching tree's test instructions, not test_kasan.
 
 # Test-kernel boot parameters: report repeatedly, or panic on invalid access
 kasan_multi_shot
@@ -157,6 +157,7 @@ Allows dynamic instrumentation of almost any kernel function without modifying s
 
 ```bash
 CONFIG_KPROBES=y
+CONFIG_KPROBE_EVENTS=y          # Required for the tracefs event interface below
 CONFIG_KALLSYMS=y
 CONFIG_KALLSYMS_ALL=y
 ```
@@ -165,23 +166,42 @@ CONFIG_KALLSYMS_ALL=y
 
 #### Method 1: Dynamic Kprobes (No Code Required)
 
-Kprobe output may reveal function arguments and workload activity. Use a
-non-secret-bearing target first, keep the capture bounded, and prepare cleanup
-before enabling the event. The placeholder below is intentionally not a
-copy-paste production probe.
+Kprobe output may reveal function arguments and workload activity. The following
+human-run recipe requires exact-host/action authorization and an already mounted
+tracefs. Verify the target is probeable and does not expose secrets. It uses an
+owned event and fresh tracing instance so existing sessions are preserved.
+Append to `kprobe_events`: opening it with `>` can clear unrelated probes.
 
 ```bash
-# LAB / approved maintenance only
-$ cd /sys/kernel/debug/tracing
-$ echo 'p:myprobe <target_function>' > kprobe_events
-$ echo 1 > events/kprobes/myprobe/enable
-
-# Bounded capture into an access-controlled incident directory
-$ timeout 30 cat trace_pipe > /secure/case/myprobe.trace
-
-# Cleanup even when capture fails or is interrupted
-$ echo 0 > events/kprobes/myprobe/enable
-$ echo '-:myprobe' > kprobe_events
+# Human-run lab / approved maintenance only; replace the target first.
+(
+set -eu
+umask 077
+tracefs=/sys/kernel/tracing
+target_function='<target_function>'
+event="crash_probe_$$"
+inst="$tracefs/instances/crash-probe-$$"
+out_dir=$(mktemp -d /tmp/kernel-probe.XXXXXX)
+test ! -e "$tracefs/events/kprobes/$event"
+mkdir "$inst"
+cleanup() {
+    printf '0\n' > "$inst/tracing_on" || :
+    if [ -e "$inst/events/kprobes/$event/enable" ]; then
+        printf '0\n' > "$inst/events/kprobes/$event/enable" || :
+    fi
+    printf -- '-:%s\n' "$event" >> "$tracefs/kprobe_events" || :
+    rmdir "$inst" || printf 'Cleanup incomplete: %s\n' "$inst" >&2
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+printf '0\n' > "$inst/tracing_on"
+printf '256\n' > "$inst/buffer_size_kb"  # KiB per CPU
+printf 'p:%s %s\n' "$event" "$target_function" >> "$tracefs/kprobe_events"
+printf '1\n' > "$inst/events/kprobes/$event/enable"
+printf '1\n' > "$inst/tracing_on"
+timeout 30 cat "$inst/trace_pipe" > "$out_dir/probe.trace" || [ "$?" -eq 124 ]
+printf 'Saved: %s\n' "$out_dir"
+)
 ```
 
 #### Method 2: Kernel Module (More Control)
@@ -201,14 +221,16 @@ static struct kprobe kp = {
 
 ### Kretprobe (Return Value Tracing)
 
+Use the same owned-event, instance, timeout, output, and trap-cleanup lifecycle
+above. For an approved target whose return value contains no sensitive data,
+replace only its probe-creation record with the following; do not create both
+records under the same event name:
+
 ```bash
-# LAB / approved maintenance only; avoid return values containing sensitive data
-$ echo 'r:myretprobe <target_function> retval=$retval' > kprobe_events
-$ echo 1 > events/kprobes/myretprobe/enable
-$ timeout 30 cat trace_pipe > /secure/case/myretprobe.trace
-$ echo 0 > events/kprobes/myretprobe/enable
-$ echo '-:myretprobe' > kprobe_events
+printf 'r:%s %s retval=$retval\n' "$event" "$target_function" >> "$tracefs/kprobe_events"
 ```
+
+[Upstream kprobe event controls](https://docs.kernel.org/trace/kprobetrace.html).
 
 ---
 
@@ -222,7 +244,8 @@ Scans memory for orphaned allocations (memory that was allocated but is no longe
 
 ```bash
 CONFIG_DEBUG_KMEMLEAK=y
-CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE=400
+# Retain the target tree's default CONFIG_DEBUG_KMEMLEAK_MEM_POOL_SIZE
+# unless evidence justifies changing its emergency metadata pool size.
 ```
 
 ### Usage
@@ -325,8 +348,14 @@ slub_debug=FZPU                       # All flags for all caches
 # After enabling slub_debug=u,<cache> in bootargs:
 cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
 cat /sys/kernel/debug/slab/kmalloc-512/free_traces
-# Compare to find allocs without matching frees (leaks)
+# alloc_traces groups currently allocated objects by allocation stack.
+# free_traces describes the previous lifecycle's freeing stacks for those
+# objects; these are not matching allocation/free event logs.
 ```
+
+Compare current allocation counts/ages across bounded snapshots and account for
+expected workload retention before calling growth a leak.
+[Upstream debugfs file semantics](https://docs.kernel.org/admin-guide/mm/slab.html#debugfs-files).
 
 ### Limitations
 
@@ -389,26 +418,43 @@ CONFIG_STACK_TRACER=y
 ### Usage
 
 Function tracing can impose substantial overhead and generate sensitive,
-high-volume output. Use a narrow filter and a short approved window; restore
-`current_tracer` and clear the filter immediately afterward.
+high-volume output. This human-run recipe requires exact-host/action
+authorization, an already mounted tracefs, and a verified function from
+`available_filter_functions`. Set the filter before activating the tracer.
+A fresh instance preserves existing global tracer, filter, and buffer state;
+if instances are unavailable, use a separately reviewed runbook that records
+and restores the exact prior state instead of assuming `nop` and an empty filter.
 
 ```bash
-# List available tracers
-$ cat /sys/kernel/debug/tracing/available_tracers
-
-# Enable function tracer
-$ echo function > /sys/kernel/debug/tracing/current_tracer
-
-# Trace specific function
-$ echo do_sys_open > /sys/kernel/debug/tracing/set_ftrace_filter
-
-# View trace
-$ cat /sys/kernel/debug/tracing/trace
-
-# Cleanup
-$ echo nop > /sys/kernel/debug/tracing/current_tracer
-$ echo > /sys/kernel/debug/tracing/set_ftrace_filter
+# Human-run lab / approved maintenance only; replace the target first.
+(
+set -eu
+umask 077
+target_function='<target_function>'
+inst=/sys/kernel/tracing/instances/crash-function-$$
+out_dir=$(mktemp -d /tmp/kernel-function.XXXXXX)
+mkdir "$inst"
+cleanup() {
+    printf '0\n' > "$inst/tracing_on" || :
+    printf 'nop\n' > "$inst/current_tracer" || :
+    printf '\n' > "$inst/set_ftrace_filter" || :
+    rmdir "$inst" || printf 'Cleanup incomplete: %s\n' "$inst" >&2
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+printf '0\n' > "$inst/tracing_on"
+printf '256\n' > "$inst/buffer_size_kb"  # KiB per CPU
+printf '%s\n' "$target_function" > "$inst/set_ftrace_filter"
+printf 'function\n' > "$inst/current_tracer"
+printf '1\n' > "$inst/tracing_on"
+sleep 30
+printf '0\n' > "$inst/tracing_on"
+cat "$inst/trace" > "$out_dir/function.trace"
+printf 'Saved: %s\n' "$out_dir"
+)
 ```
+
+[Upstream function filters and tracing instances](https://docs.kernel.org/trace/ftrace.html).
 
 ---
 

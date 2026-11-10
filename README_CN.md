@@ -17,15 +17,18 @@
 
 ## 安装
 
-```bash
-# 克隆仓库
-git clone https://github.com/crazyss/linux-kernel-crash-debug.git
+从 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
+下载并核验 `linux-kernel-crash-debug.skill`，在空目录解压全部 13 个运行时文件：
 
-# 在 Claude Code 中安装
-claude skill install linux-kernel-crash-debug.skill
+```bash
+mkdir -p ~/.claude/skills/linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
 ```
 
 ## 快速开始
+
+以下为人工交互参考；Agent 使用 `scripts/agent-crash.sh` 分析离线普通文件，
+并遵循 `SKILL_CN.md` 的安全契约。
 
 ```bash
 # 启动 crash 会话
@@ -49,7 +52,6 @@ linux-kernel-crash-debug/
 ├── README_CN.md                # 中文文档
 ├── CONTRIBUTING.md             # 贡献指南
 ├── LICENSE                     # MIT 许可证
-├── linux-kernel-crash-debug.skill  # 打包的技能文件
 └── references/                 # 详细文档
     ├── advanced-commands.md    # 高级命令详解
     ├── evidence-first-workflow.md # 证据门控、故障路由、验证和报告模板

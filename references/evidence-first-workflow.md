@@ -153,6 +153,7 @@ long-term verification result.
 |---|---|---|
 | NULL/near-NULL fault | Fault address, instruction operands, object lifetime | `bt -f`, `dis`, structure offsets |
 | Wild pointer / poison value | Alloc/free history, slab cache, neighboring objects | KASAN, KFENCE, SLUB debug, page_owner |
+| Suspected single-bit pointer corruption | Effective address, XOR difference, same-boot layout, object semantics | [Candidate validation (§5.1.1)](#511-arm64-single-bit-pointer-corruption-hypotheses) and Case 16 |
 | OOM / allocation failure | OOM log, zones, slabs, task RSS, fragmentation | `flow-oom`, `kmem`, page_owner |
 | Soft lockup | Stuck CPU stack, scheduler progress, lock owner | `bt -a`, SysRq-l, ftrace |
 | Hard lockup | NMI stack, interrupt state, firmware/BMC evidence | NMI watchdog, pstore, hardware logs |
@@ -175,15 +176,63 @@ crash> kmem <address>
 ```
 
 Map registers to the architecture ABI, calculate the effective address used by
-the instruction, and verify the supposed object type with both its allocator
-metadata and invariant fields. Compiler optimization and inlining can make a
-source-line-only explanation wrong.
+the instruction, and verify the supposed object type with invariant fields and
+allocator metadata or image-section bounds, as appropriate. Compiler
+optimization and inlining can make a source-line-only explanation wrong.
 
 When only an Oops is available, track what each saved register held at the
 faulting instruction, including intermediate arithmetic and operand widths.
 Do not assume argument registers still hold their entry values. Case 13 in
 `case-studies.md` reconstructs a GRO offset from a preserved difference;
 unobserved object fields must remain unknown.
+
+#### 5.1.1 ARM64 single-bit pointer-corruption hypotheses
+
+Use this path when a bad pointer appears one bit away from a plausible object.
+Preserve the exception syndrome, fault address, PC, saved registers, `Code`
+bytes, and this boot's `Kernel Offset` together. Analyze a candidate value
+without modifying the dump or treating the candidate as an observed value.
+
+1. **Close the fault-address calculation first.** Decode the exception class
+   and read/write direction, then match the faulting instruction against the
+   exact build. Calculate its effective address from the saved operands and
+   compare it with the recorded fault address when valid for that syndrome.
+   Trace the loads backwards to identify which object field supplied the bad
+   pointer; obtain field offsets from matching-build types/disassembly.
+2. **Quantify a justified candidate.** Explain why the expected field type,
+   symbols, and address layout suggest that candidate. Compute
+   `difference = observed XOR candidate`; exactly one differing bit requires
+   `difference != 0` and `(difference & (difference - 1)) == 0`. Record the
+   bit index. This proves a numerical relationship, not that the candidate was
+   the original value or that a physical bit flip occurred.
+3. **Validate the address and object semantics.** Use the same boot's KASLR
+   offset and actual image/mapping bounds; a computed image base alone does
+   not establish membership. Account for the pointer class, configured VA
+   width, and applicable tagging/PAC rules; never blanket-mask high bits or
+   apply userspace PAC masks to kernel pointers. VMCOREINFO can supply
+   `KERNELOFFSET`, `KERNELPACMASK`, and `NUMBER(TCR_EL1_T1SZ)`.
+   [ARM64 PAC](https://docs.kernel.org/arch/arm64/pointer-authentication.html),
+   [VMCOREINFO](https://docs.kernel.org/admin-guide/kdump/vmcoreinfo.html).
+   A `sym` result can be a symbol plus an offset: validate the offset, object
+   bounds/type, and expected member, not merely a recognizable symbol name.
+   [crash sym help](https://crash-utility.github.io/help_pages/sym.html).
+4. **Separate a table from its callback.** For a load through an operations
+   table, distinguish the table-base pointer, the member-slot address, and the
+   callback value stored there. A fault while reading the slot does not show
+   that a callback value was loaded or that callback execution began. Keep an
+   unread slot's contents unknown.
+5. **Bound the conclusion.** Report a single-bit corruption hypothesis with
+   separate confidence in the fault localization, reconstructed pointer, and
+   physical cause. Keep software overwrite, UAF, DMA, and address-interpretation
+   errors as competing explanations. Correlate saved RAS/ECC/controller records
+   and object-lifetime evidence before attributing the failure to DDR hardware;
+   unavailable or silent hardware records do not exclude a hardware fault.
+
+See [Case 16](case-studies.md#case-16-arm64-single-bit-pointer-corruption-hypothesis)
+for the published `generic_file_vm_ops` example. Agents use existing wrapper
+disassembly and bounded reads on offline files. Unsupported `sym`/type/layout
+queries require a precise handoff to an authorized human offline session;
+vendor raw-dump loading is not permission to bypass the wrapper.
 
 ### 5.2 Hangs, lockups, and deadlocks
 

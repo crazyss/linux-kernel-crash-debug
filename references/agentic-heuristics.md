@@ -19,9 +19,13 @@ completeness, kernel/module build provenance, taint, and the earliest anomaly.
 The wrapper limits output volume; it does not make mismatched symbols or a
 filtered-out address trustworthy.
 
+Nonzero crash/timeout process statuses are propagated with bounded diagnostics.
+A zero exit status alone does not prove command-level success: inspect errors
+and warnings, and keep unreadable or missing evidence unknown.
+
 ## 2. Upstream Verification (The Hacker Instinct)
 Before diving into assembly, a seasoned kernel developer checks for known fixes.
-- If `scripts/agent-crash.sh triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and first sanitize the signature (remove hostnames, customer identifiers, paths, addresses, credentials, and proprietary modules), then search official upstream sources or use local `git grep` on the Linux kernel to see if this has already been fixed. Do not reinvent the wheel if a known CVE/Bugzilla is present.
+- If `scripts/agent-crash.sh -k vmlinux -c vmcore triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and first sanitize the signature (remove hostnames, customer identifiers, paths, addresses, credentials, and proprietary modules), then search official upstream sources or use local `git grep` on the Linux kernel to see if this has already been fixed. A matching report is a candidate; compare the affected code and build before applying its conclusion.
 
 ## 3. High-Level Macro Workflows (1:1 Case Mapping)
 
@@ -33,21 +37,37 @@ The wrapper provides tailored APIs for standard debugging methodologies defined 
 * **Deadlock Analysis**: `scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock`
   Automatically extracts all UN (Uninterruptible) task backtraces filtering out idle CPU noise.
 * **OOM Analysis**: `scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom`
-  Automatically runs complex sorts to deliver the explicitly top 15 memory-hogging processes and SLAB caches without overflowing the Agent's context.
+  Ranks thread-group leaders by RSS and slab caches by `OBJSIZE * ALLOCATED`.
+  RSS includes shared pages, while allocated object bytes exclude free slab
+  capacity and allocator overhead; these rankings are not a complete memory
+  accounting or proof of a leak.
 
 ## 4. The "Linus" Method: Reverse Engineering 
 If line numbers from Backtraces are wrong due to compiler optimization (`-O2`):
 - **Command**: `scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <faulty_function> <panicked_pid>`
-- **Technique**: Read the exact `dis` assembly pointer (RIP). Cross-reference the exact active `%rax`, `%rdi`, or `%rsi` registers returned by `bt -f`. Map the assembly instructions to the C source snippet to deduce exactly what variable caused the corruption or NULL deref.
+- **Technique**: Match the faulting PC/instruction to the analyzed build. `bt -f`
+  displays stack-frame data; it does not guarantee fault-context values for
+  arbitrary registers or tasks. Use saved exception registers from the Oops or
+  a verified exception frame when available, and recover other values only
+  where the disassembly and saved state support them. Keep unavailable values
+  unknown. Reconstruct the effective address before identifying the affected
+  object; the dereference site may be a victim of earlier corruption.
 
 ## 5. Memory Poison Dictionary Validation
 When inspecting a corrupted pointer or structure:
 - **Command**: `scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <suspicious_address>`
-- **Logic**: The Agent should instantly flag the bug if the script detects these magic values:
-  - `0x6b6b6b6b`: Use After Free (`POISON_FREE`)
-  - `0x5a5a5a5a`: Uninitialized SLUB Object (`POISON_INUSE`)
-  - `0x0000000000000100` (`LIST_POISON1`): Traversing a deleted list `next`
-  - `0x0000000000000200` (`LIST_POISON2`): Traversing a deleted list `prev`
+- **Interpretation**: The wrapper flags complete data words containing repeated
+  `0x6b` (`POISON_FREE`) or `0x5a` (`POISON_INUSE`) as candidates only. Confirm the
+  target allocator's poisoning configuration, object bounds, allocation state,
+  and alloc/free history before claiming UAF or an uninitialized access. A
+  matching constant may be ordinary payload; no match does not exclude damage.
+- **List pointers**: Inspect the analyzed kernel's `LIST_POISON1`,
+  `LIST_POISON2`, and `POISON_POINTER_DELTA` definitions. Numeric offsets vary
+  by kernel version and may be relocated by `CONFIG_ILLEGAL_POINTER_VALUE`;
+  small values such as `0x100` or `0x200` are not universal signatures. The
+  wrapper does not infer list deletion or object lifetime from these values.
+  See [Linux poison definitions](https://github.com/torvalds/linux/blob/v6.12/include/linux/poison.h)
+  and [crash bt help](https://crash-utility.github.io/help_pages/bt.html).
 
 ## 6. Fallback Strategy
 If high-level macros leave an evidence gap, use only the wrapper's restricted primitives:

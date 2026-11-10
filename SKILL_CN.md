@@ -1,6 +1,6 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.5.0
+version: 1.5.1
 description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、KMSAN、DMA API 调试、fail-nth、条件轨迹捕获、RCU stall、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
 metadata:
   openclaw:
@@ -19,8 +19,13 @@ metadata:
 ## 安装
 
 ### Claude Code
+
+从已核验的 release 归档解压全部 13 个运行时文件；脚本与参考文件须和
+`SKILL.md` 一起安装。
+
 ```bash
-claude skill install linux-kernel-crash-debug.skill
+mkdir -p ~/.claude/skills/linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
 ```
 
 ### OpenClaw
@@ -32,14 +37,20 @@ clawhub install linux-kernel-crash-debug
 
 # 方式二：手动安装
 mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-cp SKILL.md ~/.openclaw/workspace/skills/linux-kernel-crash-debug/
+unzip linux-kernel-crash-debug.skill -d ~/.openclaw/workspace/skills/linux-kernel-crash-debug
 ```
+
+新安装使用空目录；已有安装按明确的升级任务处理。只复制入口文件会缺少其
+引用的脚本和参考资料。[Claude Code 技能位置](https://code.claude.com/docs/en/skills)。
 
 ## 快速开始
 
 **语言选择**：按用户偏好回复。中文入口与中文参考资料为可选内容；需要英文时使用 `SKILL.md` 并翻译相关说明。引用标题保留原文用于溯源。
 
 ### 启动会话
+
+以下为人工参考命令；Agent 使用下方离线封套。raw RAM 的加载方式须先按
+`references/vmcore-format.md` 核对格式与工具版本。
 
 ```bash
 # 分析转储文件
@@ -48,8 +59,7 @@ crash vmlinux vmcore
 # 调试运行中的系统
 crash vmlinux
 
-# 原始 RAM 转储
-crash vmlinux ddr.bin --ram_start=0x80000000
+# 原始 RAM 的加载方式取决于格式和工具版本，见上述参考。
 ```
 
 ### 核心调试流程
@@ -72,6 +82,11 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 反推、InfiniBand 错误清理路径重复释放、文件系统 writeback/reclaim 死锁。
 二分结果先视为候选触发变更，NMI 栈帧先视为被中断上下文，采集开销也可能
 促成停顿；均需验证后才能归因。
+
+怀疑 ARM64 指针出现单 bit 损坏时，按
+[候选地址验证方法](references/evidence-first-workflow.md#511-arm64-single-bit-pointer-corruption-hypotheses)
+和 [Case 16](references/case-studies.md#case-16-arm64-single-bit-pointer-corruption-hypothesis)
+分析。恢复出合理指针并不等于证明 DDR 硬件故障。
 
 ### 首轮分析仍缺证据时
 
@@ -109,8 +124,8 @@ crash vmlinux ddr.bin --ram_start=0x80000000
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 输出 `sys`、高信号日志索引、panic/全 CPU 栈和模块清单。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
    - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 获取崩溃反汇编与现场寄存器值的组合视图。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 特征码探测（检测 UAF、SLUB 等常见特征）。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 组合查看反汇编与栈帧数据；寄存器值仍须由现场证据确认。
+   - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 查找可能的 poison 数据；匹配结果不是 UAF 诊断。
 2. **受限底层操作**：宏不足时可用 `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`、`backtrace <pid>` 或 `disassemble <symbol>`。已移除 `run`。必须同时指定两个输入文件；工具拒绝实时 `/proc`、`/sys`、`/dev` 输入、root 执行以及当前目录/用户目录的 `.gdbinit`，并禁用启动 `.crashrc`。不开放任意 crash/GDB 命令、shell 转义、管道、重定向、命令文件或扩展加载。内存读取限定为 1..256 个字。
    对 vmcore 和采集输出实施访问控制。在隔离分析环境中使用可信已安装的 `crash`；封套不是操作系统沙盒，也不能防御畸形转储/符号文件触发的解析器漏洞。不支持的查询应报告证据缺口，将明确的离线查询交给有授权的人，不得绕过封套。
 3. 如果您需要更高的专家视角，请查阅 `references/agentic-heuristics.md`（高阶内核黑客视角策略）。
@@ -126,6 +141,10 @@ crash vmlinux ddr.bin --ram_start=0x80000000
 | **版本** | vmlinux 必须与 vmcore 内核版本完全匹配 |
 
 软件安装会改变主机；仅在获得具体主机和软件包的明确授权后执行。优先使用已安装工具，离线转储分析使用非 root 账号。按发行版安装工具与匹配的 debuginfo：
+
+示例中的 `uname -r` 指当前主机；分析其他主机或启动的转储时，须改用转储
+对应的内核 release 与 build 查询符号，不能安装分析机当前内核的符号来代替。
+
 ```bash
 # RHEL / CentOS / Rocky / AlmaLinux
 sudo dnf install crash gdb binutils makedumpfile kexec-tools
@@ -133,7 +152,7 @@ sudo dnf debuginfo-install kernel-$(uname -r)
 
 # Debian / Ubuntu
 sudo apt install crash kdump-tools kexec-tools gdb binutils makedumpfile
-apt-cache search "linux-image-$(uname -r).*dbg\|linux-image-$(uname -r).*dbgsym"
+apt-cache search --names-only "linux-image-$(uname -r).*(dbg|dbgsym)"
 
 # SLES / openSUSE
 sudo zypper install crash kexec-tools makedumpfile
@@ -154,7 +173,7 @@ ClawHub 元数据只把所有路径都需要的 `crash` 声明为硬依赖。`kd
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
-| `sys` | 系统信息/panic 原因 | `sys`, `sys -i` |
+| `sys` | 系统信息/panic 原因；`-i` 显示 DMI | `sys`, `sys -i` |
 | `log` | 内核消息缓冲区 | `log`, `log \| tail` |
 | `bt` | 调用栈回溯 | `bt`, `bt -a`, `bt -f` |
 | `struct` | 结构体查看 | `struct task_struct <addr>` |
@@ -236,7 +255,7 @@ crash> < commands.txt
 | 维度 | x86_64 | ARM64 |
 |------|--------|-------|
 | crash 命令 | `crash vmlinux vmcore` | 先用 `crash vmlinux vmcore`，恢复场景再加 `-m` |
-| KASLR | 通常由 VMCOREINFO 自动处理 | 通常自动处理；raw/元数据损坏时才推导 `-m kaslr=<偏移>` |
+| KASLR | 通常由 VMCOREINFO 自动处理 | 通常自动处理；显式 `--kaslr=<偏移>` 须核实工具的 ARM64 支持 |
 | 虚拟地址位宽 | 对当前构建固定 | VMCOREINFO 优先；`-m vabits_actual=<位数>` 是回退 |
 | 物理基地址 | `phys_base`（VMCOREINFO）| VMCOREINFO 优先；`-m phys_offset=<地址>` 是回退 |
 | VA-PA 偏移 | `__START_KERNEL_map` 固定映射 | VMCOREINFO 优先；`-m kimage_voffset=<值>` 是回退 |
@@ -253,13 +272,14 @@ crash_arm64 \
   -m vabits_actual=39 \
   -m phys_offset=0x80000000 \
   -m kimage_voffset=0xffffffc000000000 \
-  -m kaslr=0x0 \
+  --kaslr=0x0 \
   vmlinux vmcore
 ```
 
 > 首先尝试 `crash vmlinux vmcore`。仅在 VMCOREINFO 缺失/损坏或输入为 raw
-> RAM 时显式传值；`kaslr=0` 表示 KASLR 确实关闭，不能默认假设，更不能复用
-> 另一次启动的参数。
+> RAM 时显式传值，并核实所用工具对 ARM64 `--kaslr` 的支持。零偏移必须由
+> 本次启动的证据确认，不能默认假设，更不能复用另一次启动的参数。
+> `-m kaslr` 不是上游 ARM64 支持的覆盖参数。
 
 ## 典型调试场景
 
@@ -329,7 +349,9 @@ crash> bt <owner_pid>
 
 > FP/SP 精确计算、`stp` 槽位顺序、owner mask 和失败检查见 `references/arm64-lock-analysis.md`；完整 rwsem 案例见 `references/case-studies.md` Case 11。
 
-> **x86_64 等价方案**：使用 RBP 链 + `bt -f`。注意 `-fomit-frame-pointer` 优化会导致此方法失败，此时改用 `bt -F` 或显式栈帧定位。
+> **x86_64 等价方案**：结合匹配反汇编与 unwinder 保存的栈状态。`bt -f`
+> 显示栈帧数据，`bt -F` 对其符号化；都不能恢复已被优化掉的参数或缺失的
+> 寄存器。手工遍历 RBP 链要求保留帧指针，否则需要工具支持的展开元数据。
 
 ### 内存泄露三层诊断法
 
@@ -342,7 +364,7 @@ crash> bt <owner_pid>
 
 ```
 # === 第一层：/proc 三件套（读运行系统或捕获信息）===
-# MemAvailable 持续下降 + SUnreclaim 持续增加 → slab 内存泄露
+# MemAvailable 持续下降且 SUnreclaim 增加提示 slab 增长，仍需验证保留原因。
 cat /proc/meminfo
 cat /proc/slabinfo
 cat /proc/buddyinfo
@@ -353,15 +375,15 @@ cat /proc/buddyinfo
 cat /sys/kernel/debug/slab/kmalloc-512/alloc_traces
 cat /sys/kernel/debug/slab/kmalloc-512/free_traces
 
-# === 第三层：>8K 的大块分配（page_owner）===
-# SUnreclaim 上涨但 slabinfo 平稳 → kmalloc > 8K 走 alloc_pages 路径
+# === 第三层：slab 增长不能解释的 page 分配（page_owner）===
+# 大块 kmalloc 可绕过 slab，阈值取决于 PAGE_SIZE 与具体构建。
 # 启用 CONFIG_PAGE_OWNER + bootargs 加 page_owner=on
 # 如果 page_owner 尚未启用，使用已批准的维护 runbook；
 # 不要在自动分诊过程中临时开启。
 # 周期性抓 snapshot，对比：
-./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt > begin.txt
-./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt   > end.txt
-# 对比两份结果，增长的调用栈即为泄露
+./page_owner_sort --cull name,ator,stacktrace page_owner_begin.txt begin.txt
+./page_owner_sort --cull name,ator,stacktrace page_owner_end.txt end.txt
+# 对比相同工作负载阶段的保留分配；增长是线索，不能单独证明泄漏。
 
 # === 备选：kmemleak ===
 # CONFIG_DEBUG_KMEMLEAK + bootarg 加 kmemleak=on
@@ -372,8 +394,8 @@ cat /sys/kernel/debug/kmemleak
 ### 链式查询
 
 ```
-crash> bt -f                  # 获取指针
-crash> struct file.f_dentry <addr>
+crash> bt -f                  # 结合匹配反汇编恢复候选指针
+crash> struct file.f_path.dentry <addr>
 crash> struct dentry.d_inode <addr>
 crash> struct inode.i_pipe <addr>
 ```
@@ -381,7 +403,7 @@ crash> struct inode.i_pipe <addr>
 ### 批量检查 Slab
 
 ```
-crash> kmem -S inode_cache | grep counter | grep -v "= 1"
+crash> kmem -S inode_cache     # 查看 slab 元数据，不是验证 inode 引用计数
 ```
 
 ### 遍历内核链表
@@ -399,7 +421,7 @@ crash> list -h <addr> -s dentry.d_name.name
 |------|------|
 | `references/advanced-commands.md` | 高级命令详解：list, rd, search, vtop, kmem, foreach |
 | `references/vmcore-format.md` | vmcore 文件格式、ELF 结构、VMCOREINFO |
-| `references/case-studies.md` | 调试案例，含有来源的 GRO 偏移、InfiniBand 重复释放、writeback/reclaim 证据链（Case 13–15） |
+| `references/case-studies.md` | 调试案例，含有来源的 GRO 偏移、InfiniBand 重复释放、writeback/reclaim、ARM64 单 bit 指针损坏证据链（Case 13–16） |
 | `references/debug-tools-guide.md` | 工具选择；KMSAN 来源链、DMA 生命周期、按任务故障注入与条件轨迹捕获（§8） |
 | `references/kdump-setup-guide.md` | **新增** kdump 端到端配置（x86_64 + ARM64 双架构、crashkernel 语法、sysrq 触发） |
 | `references/arm64-crash-params.md` | **新增** ARM64 专用 crash 地址参数（vabits_actual、phys_offset、kimage_voffset、kaslr） |

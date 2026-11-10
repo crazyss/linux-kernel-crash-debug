@@ -30,21 +30,21 @@ linux-kernel-crash-debug/
 ## Development Commands
 
 ### Package the skill (full)
-```bash
-cd linux-kernel-crash-debug
-zip -r ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/
-```
+Use the explicit 13-file staging procedure in `AGENTS.md`, then build a fresh
+ZIP from that verified directory. Do not archive unchecked local directories.
 
 > **Note**: The `.skill` package is **whitelist-only**. Do NOT include `LICENSE`, `CONTRIBUTING.md`, `.github/`, or any repository metadata. All skills published on ClawHub are licensed under MIT-0 (MIT No Attribution) by default, so the LICENSE file is not needed for upload.
 
 ### Update existing package
-```bash
-zip -u linux-kernel-crash-debug.skill SKILL.md
-```
+
+Rebuild a fresh archive from the explicit 13-file whitelist in `AGENTS.md`.
+Updating only `SKILL.md` can leave stale companion files and mismatched versions.
+Do not copy unchecked local `scripts/` or `references/` contents into a release.
 
 ### Install locally
 ```bash
-claude skill install linux-kernel-crash-debug.skill
+mkdir -p ~/.claude/skills/linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
 ```
 
 ## Skill Architecture

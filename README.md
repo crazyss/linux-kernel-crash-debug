@@ -17,15 +17,19 @@ Welcome to **Linux Kernel Crash Debug Skill**! This is a Claude Code skill that 
 
 ## Installation
 
-```bash
-# Download the skill file
-git clone https://github.com/crazyss/linux-kernel-crash-debug.git
+Download and verify `linux-kernel-crash-debug.skill` from
+[GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest),
+then extract all 13 runtime files into an empty personal-skill directory:
 
-# Install in Claude Code
-claude skill install linux-kernel-crash-debug.skill
+```bash
+mkdir -p ~/.claude/skills/linux-kernel-crash-debug
+unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
 ```
 
 ## Quick Start
+
+The session below is human reference. Agents use `scripts/agent-crash.sh` on
+offline regular files and follow the safety contract in `SKILL.md`.
 
 ```bash
 # Start crash session
