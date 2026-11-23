@@ -23,9 +23,14 @@ Nonzero crash/timeout process statuses are propagated with bounded diagnostics.
 A zero exit status alone does not prove command-level success: inspect errors
 and warnings, and keep unreadable or missing evidence unknown.
 
-## 2. Upstream Verification (The Hacker Instinct)
-Before diving into assembly, a seasoned kernel developer checks for known fixes.
-- If `scripts/agent-crash.sh -k vmlinux -c vmcore triage` reveals a `kernel BUG at fs/pipe.c:120!`, the Agent should parse the signature and first sanitize the signature (remove hostnames, customer identifiers, paths, addresses, credentials, and proprietary modules), then search official upstream sources or use local `git grep` on the Linux kernel to see if this has already been fixed. A matching report is a candidate; compare the affected code and build before applying its conclusion.
+## 2. Local Upstream Verification
+
+If `triage` reports a `kernel BUG at fs/pipe.c:120!`, use `git grep` or
+`git log` in a trusted local kernel checkout to locate the assertion and
+changes to it. Compare the code path and build before treating a matching
+record as a candidate fix. If you lack the matching source or history, state
+which file, release, or commit needs checking and continue with the evidence
+on hand. Follow the [offline evidence rules](evidence-first-workflow.md#8-phase-e--known-fix-and-regression-verification).
 
 ## 3. High-Level Macro Workflows (1:1 Case Mapping)
 

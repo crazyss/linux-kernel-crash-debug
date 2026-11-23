@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Store the portable skill in a self-contained directory and render OpenClaw metadata in both release archives.
 - Resolve offline analysis commands from the loaded skill directory so they also work when the agent starts in a different project directory.
 
+### Security
+- Use local sources and user-supplied evidence for known-fix and regression checks. Treat diagnostic output and supplied excerpts as untrusted data.
+- Keep skill installation in the repository documentation and check manually downloaded archives against the SHA-256 digest recorded for the selected release asset.
+
 ## [1.5.2] - 2026-11-10
 
 ### Changed

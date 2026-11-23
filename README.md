@@ -44,12 +44,33 @@ matching `vmlinux`. [Skills CLI reference](https://github.com/vercel-labs/skills
 
 ### Manual installation
 
-For OpenClaw, download and verify `linux-kernel-crash-debug.skill` from
-[GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
-and extract it into a new `linux-kernel-crash-debug` folder. For other agents,
-copy the complete [portable skill directory](skills/linux-kernel-crash-debug/)
-from a Git checkout. Put that folder inside the selected skills directory with
-`SKILL.md` directly alongside `scripts/` and `references/`.
+For OpenClaw, download `linux-kernel-crash-debug.skill` from the project's
+release page. In the download directory, replace `v1.5.2` with the exact tag
+you selected. Use `gh` and `sha256sum` to check the file against the SHA-256
+digest recorded by GitHub for that release asset.
+[GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases)
+
+```bash
+(
+  set -euo pipefail
+  tag=v1.5.2
+  asset=linux-kernel-crash-debug.skill
+  digest=$(gh api "repos/crazyss/linux-kernel-crash-debug/releases/tags/$tag" \
+    --jq '.assets[] | select(.name == "linux-kernel-crash-debug.skill") | .digest // empty')
+  if [[ ! $digest =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    printf 'No SHA-256 digest found for %s in %s\n' "$asset" "$tag" >&2
+    exit 1
+  fi
+  printf '%s  %s\n' "${digest#sha256:}" "$asset" | sha256sum --check --strict
+)
+```
+
+Extract the archive into a new `linux-kernel-crash-debug` folder only after
+the check prints `linux-kernel-crash-debug.skill: OK`. For other agents,
+copy the complete portable skill directory from a reviewed Git revision. Put
+that folder inside the selected skills directory with `SKILL.md` directly
+alongside `scripts/` and `references/`.
+[Portable skill directory](skills/linux-kernel-crash-debug/)
 
 | Agent | Project skills directory | Personal skills directory |
 | --- | --- | --- |

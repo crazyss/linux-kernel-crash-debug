@@ -40,8 +40,24 @@ npx skills@1.9.0 add crazyss/linux-kernel-crash-debug \
 
 ### 手动安装
 
-OpenClaw 用户可从 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
-下载并核验 `linux-kernel-crash-debug.skill`，解压到新的 `linux-kernel-crash-debug` 目录。其他 Agent 可从 Git 工作副本复制完整的[通用技能目录](skills/linux-kernel-crash-debug/)。将该目录放入下表对应位置，目录内的 `SKILL.md` 应与 `scripts/` 和 `references/` 同级。
+OpenClaw 用户可从项目发布页下载 `linux-kernel-crash-debug.skill`。在下载目录中执行以下命令，把 `v1.5.2` 换成所选的发布标签。命令用 `gh` 查询 GitHub 为该发布资产记录的 SHA-256，再用 `sha256sum` 校验本地文件。 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases)
+
+```bash
+(
+  set -euo pipefail
+  tag=v1.5.2
+  asset=linux-kernel-crash-debug.skill
+  digest=$(gh api "repos/crazyss/linux-kernel-crash-debug/releases/tags/$tag" \
+    --jq '.assets[] | select(.name == "linux-kernel-crash-debug.skill") | .digest // empty')
+  if [[ ! $digest =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    printf 'No SHA-256 digest found for %s in %s\n' "$asset" "$tag" >&2
+    exit 1
+  fi
+  printf '%s  %s\n' "${digest#sha256:}" "$asset" | sha256sum --check --strict
+)
+```
+
+看到 `linux-kernel-crash-debug.skill: OK` 后，再解压到新的 `linux-kernel-crash-debug` 目录。其他 Agent 可从已审阅的 Git 版本复制完整的通用技能目录。将该目录放入下表对应位置，目录内的 `SKILL.md` 应与 `scripts/` 和 `references/` 同级。 [通用技能目录](skills/linux-kernel-crash-debug/)
 
 | Agent | 项目级技能目录 | 用户级技能目录 |
 | --- | --- | --- |
