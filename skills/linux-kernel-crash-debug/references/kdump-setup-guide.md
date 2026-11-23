@@ -334,7 +334,7 @@ cat /sys/kernel/kexec_crash_loaded # 应为 1
 
 # 5. 确认 vmcore 的事故内核与 vmlinux/module build ID 精确匹配。
 # 重启后 uname -r 可能已经改变；Agent 仅使用离线封套：
-./scripts/agent-crash.sh -k /case/exact-build/vmlinux -c /case/incident/vmcore triage
+bash "$SKILL_DIR/scripts/agent-crash.sh" -k /case/exact-build/vmlinux -c /case/incident/vmcore triage
 ```
 
 ---

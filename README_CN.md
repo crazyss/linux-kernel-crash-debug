@@ -4,6 +4,10 @@
 
 **Linux Kernel Crash Debug Skill** 提供基于 crash 工具的 Linux 内核崩溃分析流程、参考资料和供 agent 使用的离线分析封套，强调证据优先。
 
+本技能最初面向 OpenClaw 发布，通过 [ClawHub](https://clawhub.ai/crazyss/skills/linux-kernel-crash-debug) 分发。ClawHub 仍是主要发布渠道，GitHub Releases 和 `npx skills` 提供其他安装入口。
+
+如果这个技能对你有帮助，欢迎在 [GitHub 点个 Star](https://github.com/crazyss/linux-kernel-crash-debug)。
+
 ## 功能特性
 
 - **快速入门指南**：核心命令和调试流程
@@ -11,27 +15,45 @@
 - **完整命令参考**：所有 crash utility 命令及示例
 - **高级技巧**：内存分析、链表遍历、地址翻译
 - **生产环境检测**：pstore/ramoops、watchdog、KFENCE、KCSAN 与 drgn 自动化
-- **定点取证打法**：KMSAN 来源链、DMA 映射核对、按任务故障注入、条件轨迹捕获与 RCU stall 差分（[操作方案](references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap)、[RCU 判读](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period)）
+- **定点取证打法**：KMSAN 来源链、DMA 映射核对、按任务故障注入、条件轨迹捕获与 RCU stall 差分（[操作方案](skills/linux-kernel-crash-debug/references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap)、[RCU 判读](skills/linux-kernel-crash-debug/references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period)）
 - **实战案例**：kernel BUG、死锁、OOM、NULL 指针、栈溢出
 - **vmcore 知识**：ELF 格式、VMCOREINFO、转储文件类型
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
-下载并核验 `linux-kernel-crash-debug.skill`，在空目录解压全部 13 个运行时文件：
+### OpenClaw（通过 ClawHub）
 
 ```bash
-mkdir -p ./linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ./linux-kernel-crash-debug
+clawhub install linux-kernel-crash-debug
 ```
 
-将完整目录放入所用 agent 的 skill 目录。各平台的目录示例见
-[安装说明](SKILL_CN.md#安装)。
+### Codex、Claude Code 和 Antigravity CLI（通过 `npx skills`）
+
+在要使用技能的项目目录执行以下命令。
+
+```bash
+npx skills@1.9.0 add crazyss/linux-kernel-crash-debug \
+  --skill linux-kernel-crash-debug -a codex -a claude-code -a antigravity-cli
+```
+
+按需保留 `-a` 选项。Cursor 用 `-a cursor`，Gemini CLI 用 `-a gemini-cli`。加 `-g` 可安装到用户级目录。上述安装器需要 Node.js 22.20.0 或更新版本。实际分析在 Linux 环境执行，需要 `crash`、Bash、GNU coreutils，以及可读取的离线转储和与之匹配的 `vmlinux`。[Skills CLI 文档](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
+
+### 手动安装
+
+OpenClaw 用户可从 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
+下载并核验 `linux-kernel-crash-debug.skill`，解压到新的 `linux-kernel-crash-debug` 目录。其他 Agent 可从 Git 工作副本复制完整的[通用技能目录](skills/linux-kernel-crash-debug/)。将该目录放入下表对应位置，目录内的 `SKILL.md` 应与 `scripts/` 和 `references/` 同级。
+
+| Agent | 项目级技能目录 | 用户级技能目录 |
+| --- | --- | --- |
+| Codex、Cursor、Gemini CLI | `.agents/skills/` | `~/.agents/skills/` |
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Google Antigravity CLI（`agy`） | `.agents/skills/` | `~/.gemini/config/skills/` |
+| OpenClaw | `<workspace>/skills/` | `~/.openclaw/skills/` |
 
 ## 快速开始
 
 以下为人工交互参考；Agent 使用 `scripts/agent-crash.sh` 分析离线普通文件，
-并遵循 `SKILL_CN.md` 的安全契约。
+并遵循 [SKILL_CN.md](skills/linux-kernel-crash-debug/SKILL_CN.md) 的安全契约。
 
 ```bash
 # 启动 crash 会话
@@ -45,22 +67,9 @@ crash> struct <type>    # 检查数据结构
 crash> kmem <addr>      # 内存分析
 ```
 
-## 目录结构
+## 技能源文件
 
-```
-linux-kernel-crash-debug/
-├── SKILL.md                    # 主技能文件（英文）
-├── SKILL_CN.md                 # 主技能文件（中文）
-├── README.md                   # 英文文档
-├── README_CN.md                # 中文文档
-├── CONTRIBUTING.md             # 贡献指南
-├── LICENSE                     # MIT 许可证
-└── references/                 # 详细文档
-    ├── advanced-commands.md    # 高级命令详解
-    ├── evidence-first-workflow.md # 证据门控、故障路由、验证和报告模板
-    ├── vmcore-format.md        # vmcore 文件格式
-    └── case-studies.md         # 实战调试案例
-```
+[技能目录](skills/linux-kernel-crash-debug/)包含 `SKILL.md`、`SKILL_CN.md`、`scripts/` 和 `references/`。两个发布包均从这里生成，包内的技能入口带有 OpenClaw 所需的 Linux 和 `crash` 依赖声明。
 
 ## 使用方法
 

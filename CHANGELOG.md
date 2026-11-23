@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Install with `npx skills` for Codex, Claude Code, Antigravity CLI, Cursor, and Gemini CLI.
+
+### Changed
+- Store the portable skill in a self-contained directory and render OpenClaw metadata in both release archives.
+- Resolve offline analysis commands from the loaded skill directory so they also work when the agent starts in a different project directory.
+
 ## [1.5.2] - 2026-11-10
 
 ### Changed

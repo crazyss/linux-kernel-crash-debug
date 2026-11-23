@@ -8,44 +8,22 @@ This repository provides a Linux kernel crash-debugging skill using the crash ut
 
 ## Repository Structure
 
-```
-linux-kernel-crash-debug/
-├── SKILL.md                        # Main skill definition (YAML frontmatter + Markdown)
-├── SKILL_CN.md                     # Chinese version of the skill
-├── README.md                       # Installation and usage instructions
-├── scripts/                        # Utility scripts
-│   └── agent-crash.sh              # Agent-safe crash wrapper
-├── references/                     # Detailed reference documents
-│   ├── advanced-commands.md        # Advanced crash commands reference
-│   ├── agentic-heuristics.md       # Agent debugging heuristics
-│   ├── evidence-first-workflow.md  # Evidence gates, routing, verification, report template
-│   ├── case-studies.md             # Debugging case studies
-│   ├── debug-tools-guide.md        # KASAN, Kprobes, Kmemleak guide
-│   └── vmcore-format.md            # vmcore file format details
-└── linux-kernel-crash-debug.skill  # Packaged skill file (zip format)
-```
-
-**Note**: The `.skill` file is a standard zip archive. Use `unzip -l` to inspect contents.
+The source lives in `skills/linux-kernel-crash-debug/`. Keep `SKILL.md`,
+`SKILL_CN.md`, `scripts/agent-crash.sh`, and the references together. The
+`skills` CLI installs this directory for Codex, Claude Code, Antigravity CLI,
+and other compatible agents.
 
 ## Development Commands
 
-### Package the skill (full)
-Use the explicit 13-file staging procedure in `AGENTS.md`, then build a fresh
-ZIP from that verified directory. Do not archive unchecked local directories.
-
-> **Note**: The `.skill` package is **whitelist-only**. Do NOT include `LICENSE`, `CONTRIBUTING.md`, `.github/`, or any repository metadata. All skills published on ClawHub are licensed under MIT-0 (MIT No Attribution) by default, so the LICENSE file is not needed for upload.
-
-### Update existing package
-
-Rebuild a fresh archive from the explicit 13-file whitelist in `AGENTS.md`.
-Updating only `SKILL.md` can leave stale companion files and mismatched versions.
-Do not copy unchecked local `scripts/` or `references/` contents into a release.
-
-### Install locally
 ```bash
-mkdir -p ~/.claude/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
+bash -n skills/linux-kernel-crash-debug/scripts/agent-crash.sh
+python3 .github/tests/test_agent_crash.py
+python3 .github/package-skill.py "$(mktemp -d)"
 ```
+
+The packaging command builds both release archives from the 13-file whitelist.
+See `AGENTS.md` for ClawHub dry-run and publication steps. See `README.md` for
+client installation commands.
 
 ## Skill Architecture
 
@@ -56,7 +34,7 @@ The skill consists of a Markdown entry point and supporting files:
 
 ### ClawHub Metadata Format
 
-For ClawHub registry compatibility, use this frontmatter structure:
+The package builder adds this frontmatter structure for ClawHub registry compatibility:
 
 ```yaml
 ---
@@ -66,10 +44,9 @@ metadata:
   openclaw:
     requires:
       bins:          # Required binary tools
-        - tool1
-        - tool2
-      env:           # Required environment variables (optional)
-        - API_KEY
+        - crash
+    os:
+      - linux
     homepage: https://github.com/<repo>
 ---
 ```

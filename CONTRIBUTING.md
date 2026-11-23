@@ -14,11 +14,11 @@ If you've noticed a bug or have a feature request, [make one](https://github.com
    cd linux-kernel-crash-debug
    ```
 
-2. Make your documentation or skill modifications.
+2. Edit the documentation or the skill under `skills/linux-kernel-crash-debug/`.
 
-3. Package the skill (if required for distribution) using standard zip commands:
+3. Build the OpenClaw-compatible release archives in a temporary directory:
    ```bash
-   zip ../linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md references/*.md
+   python3 .github/package-skill.py "$(mktemp -d)"
    ```
 
 ## Pull Request Process

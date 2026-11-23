@@ -1,12 +1,18 @@
 name: Package and Release Skill
 
 permissions:
-  contents: write
+  contents: read
 
 on:
   push:
-    tags:
-      - 'v*'  # 监听以 v 开头的 tag 推送 (例如 v1.0.0)
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'skills/**'
+      - '.github/package-skill.py'
+      - '.github/tests/**'
+      - '.github/workflows/release.yml'
+      - '.gitattributes'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -14,68 +20,90 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          persist-credentials: false
+
       - name: Verify Offline Wrapper Boundary
         run: |
-          bash -n scripts/agent-crash.sh
+          bash -n skills/linux-kernel-crash-debug/scripts/agent-crash.sh
           python3 .github/tests/test_agent_crash.py
 
-      - name: Create Skill Package
-        run: |
-          # Whitelist-only packaging: do NOT include LICENSE, CONTRIBUTING.md,
-          # or any .github/ metadata. ClawHub defaults to MIT-0, and the registry
-          # validates the package contents against the skill manifest.
-          zip -q -r linux-kernel-crash-debug.skill SKILL.md SKILL_CN.md scripts/ references/
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
 
-      - name: Create Clean Source Archive
+      - name: Verify Skills CLI Installation
         env:
-          # GITHUB_REF is server-injected (e.g. "refs/tags/v1.3.1") and not
-          # attacker-controllable, but we still pass it via env to keep the
-          # shell-quoted expansion explicit.
-          GITHUB_REF: ${{ github.ref }}
+          # Only an explicit catalog publication should report this test install.
+          DISABLE_TELEMETRY: ${{ !contains(github.event.head_commit.message, '[skills.sh]') && '1' || '' }}
         run: |
-          # Build a clean source zip that mirrors the auto-generated
-          # "Source code (zip)" asset on the Release page, but with
-          # repository metadata excluded via .gitattributes (export-ignore).
-          # This ensures the user-facing download does not contain
-          # .github/, .gitignore, LICENSE, CONTRIBUTING.md, etc.
-          TAG="${GITHUB_REF#refs/tags/}"
-          git archive --format=zip \
-            --prefix="linux-kernel-crash-debug-${TAG}/" \
-            -o "linux-kernel-crash-debug-${TAG}.zip" HEAD
-
-      - name: Verify Clean Source Archive
-        env:
-          GITHUB_REF: ${{ github.ref }}
-        run: |
-          # Defence-in-depth: even though .gitattributes drives the
-          # exclusion, a typo there could silently leak metadata. This
-          # step fails the build if any forbidden path appears in the
-          # archive. Keep this list in sync with .gitattributes.
           set -euo pipefail
-          TAG="${GITHUB_REF#refs/tags/}"
-          ARCHIVE="linux-kernel-crash-debug-${TAG}.zip"
-          FORBIDDEN='\.gitignore$|\.gitattributes$|\.github/|\.agents/|\.firecrawl/|^[^/]*/LICENSE$|^[^/]*/CONTRIBUTING\.md$|^[^/]*/CHANGELOG\.md$|^[^/]*/CLAUDE\.md$|^[^/]*/AGENTS\.md$|^[^/]*/README\.md$|^[^/]*/README_CN\.md$'
-          echo "==> Listing files in ${ARCHIVE}:"
-          unzip -Z1 "${ARCHIVE}" | sort
-          echo ""
-          echo "==> Checking for forbidden paths..."
-          if LEAKS=$(unzip -Z1 "${ARCHIVE}" | grep -E "${FORBIDDEN}" || true); [ -n "${LEAKS}" ]; then
-            echo "ERROR: forbidden paths found in source archive:" >&2
-            echo "${LEAKS}" >&2
-            echo "" >&2
-            echo "These paths must be marked 'export-ignore' in .gitattributes." >&2
+          skill_name=linux-kernel-crash-debug
+          skill_source="$GITHUB_WORKSPACE/skills/$skill_name"
+          install_project="$(mktemp -d)"
+          cd "$install_project"
+          git init -q
+          npx --yes skills@1.9.0 add "$GITHUB_REPOSITORY@$GITHUB_SHA" \
+            --skill "$skill_name" -a codex -a claude-code -a antigravity-cli --copy -y
+          diff -r "$skill_source" ".agents/skills/$skill_name"
+          diff -r "$skill_source" ".claude/skills/$skill_name"
+
+      - name: Create Skill Packages
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            python3 .github/package-skill.py . --tag "$GITHUB_REF_NAME"
+          else
+            python3 .github/package-skill.py .
+          fi
+
+      - name: Verify Release Archives and Source Export
+        run: |
+          set -euo pipefail
+          archive=(linux-kernel-crash-debug-v*.zip)
+          test "${#archive[@]}" -eq 1
+          unzip -tq linux-kernel-crash-debug.skill
+          unzip -tq "${archive[0]}"
+          package_root="$(mktemp -d)"
+          unzip -q linux-kernel-crash-debug.skill -d "$package_root/skill"
+          unzip -q "${archive[0]}" -d "$package_root/zip"
+          diff -r "$package_root/skill" "$package_root/zip/${archive[0]%.zip}"
+
+          # Keep this forbidden-path expression aligned with .gitattributes.
+          git archive --format=zip --prefix=source/ -o "$package_root/source.zip" HEAD
+          forbidden='\.gitignore$|\.gitattributes$|\.github/|\.agents/|\.firecrawl/|^[^/]*/LICENSE$|^[^/]*/CONTRIBUTING\.md$|^[^/]*/CHANGELOG\.md$|^[^/]*/CLAUDE\.md$|^[^/]*/AGENTS\.md$|^[^/]*/README\.md$|^[^/]*/README_CN\.md$'
+          if unzip -Z1 "$package_root/source.zip" | rg "$forbidden"; then
             exit 1
           fi
-          echo "OK: no forbidden paths in ${ARCHIVE}"
+          diff -u <(git ls-files 'skills/linux-kernel-crash-debug/**' | sort) \
+            <(unzip -Z1 "$package_root/source.zip" | sed -e 's,^source/,,' -e '/\/$/d' -e '/^$/d' | sort)
 
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: skill-release
+          path: |
+            linux-kernel-crash-debug.skill
+            linux-kernel-crash-debug-v*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: skill-release
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             linux-kernel-crash-debug.skill
-            linux-kernel-crash-debug-*.zip
+            linux-kernel-crash-debug-v*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

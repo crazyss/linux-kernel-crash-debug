@@ -73,7 +73,7 @@ failure signature.
 Agents must use the non-interactive wrapper:
 
 ```bash
-./scripts/agent-crash.sh -k /path/to/vmlinux -c /path/to/vmcore triage
+bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore triage
 ```
 
 Human interactive equivalent:

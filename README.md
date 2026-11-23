@@ -4,6 +4,10 @@
 
 **Linux Kernel Crash Debug Skill** guides evidence-first Linux kernel crash analysis using the crash utility, with workflows, reference material, and an offline analysis wrapper for agents.
 
+This skill was first published for OpenClaw via [ClawHub](https://clawhub.ai/crazyss/skills/linux-kernel-crash-debug), which remains its primary release channel. GitHub Releases and `npx skills` provide additional installation options.
+
+If the skill helps you, [star it on GitHub](https://github.com/crazyss/linux-kernel-crash-debug).
+
 ## Features
 
 - **Quick Start Guide**: Essential commands and debugging workflow
@@ -11,28 +15,53 @@
 - **Complete Command Reference**: All crash utility commands with examples
 - **Advanced Techniques**: Memory analysis, linked list traversal, address translation
 - **Production Detection**: pstore/ramoops, watchdogs, KFENCE, KCSAN, and drgn automation
-- **Targeted Evidence Playbooks**: KMSAN origins, DMA mapping checks, per-task fault injection, conditional trace capture, and RCU stall comparison ([recipes](references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap), [RCU](references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period))
+- **Targeted Evidence Playbooks**: KMSAN origins, DMA mapping checks, per-task fault injection, conditional trace capture, and RCU stall comparison ([recipes](skills/linux-kernel-crash-debug/references/debug-tools-guide.md#8-targeted-playbooks-close-a-specific-evidence-gap), [RCU](skills/linux-kernel-crash-debug/references/evidence-first-workflow.md#521-rcu-stalls-compare-the-same-grace-period))
 - **Real-world Cases**: Kernel BUG, deadlock, OOM, NULL pointer, stack overflow
 - **vmcore Knowledge**: ELF format, VMCOREINFO, dump file types
 
 ## Installation
 
-Download and verify `linux-kernel-crash-debug.skill` from
-[GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest),
-then extract all 13 runtime files into an empty directory:
+### OpenClaw via ClawHub
 
 ```bash
-mkdir -p ./linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ./linux-kernel-crash-debug
+clawhub install linux-kernel-crash-debug
 ```
 
-Place the complete directory in your agent's skill directory. See
-[installation examples](SKILL.md#installation) for platform-specific locations.
+### Codex, Claude Code, and Antigravity CLI via `npx skills`
+
+Run this from the project where you want to use the skill.
+
+```bash
+npx skills@1.9.0 add crazyss/linux-kernel-crash-debug \
+  --skill linux-kernel-crash-debug -a codex -a claude-code -a antigravity-cli
+```
+
+Keep the `-a` flags for the agents you use. Use `-a cursor` for Cursor or
+`-a gemini-cli` for Gemini CLI. Add `-g` for a user-level installation. The pinned
+installer requires Node.js 22.20.0 or later. Runtime analysis needs a Linux
+shell with `crash`, Bash, GNU coreutils, and access to the offline dump and
+matching `vmlinux`. [Skills CLI reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
+
+### Manual installation
+
+For OpenClaw, download and verify `linux-kernel-crash-debug.skill` from
+[GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases/latest)
+and extract it into a new `linux-kernel-crash-debug` folder. For other agents,
+copy the complete [portable skill directory](skills/linux-kernel-crash-debug/)
+from a Git checkout. Put that folder inside the selected skills directory with
+`SKILL.md` directly alongside `scripts/` and `references/`.
+
+| Agent | Project skills directory | Personal skills directory |
+| --- | --- | --- |
+| Codex, Cursor, Gemini CLI | `.agents/skills/` | `~/.agents/skills/` |
+| Claude Code | `.claude/skills/` | `~/.claude/skills/` |
+| Google Antigravity CLI (`agy`) | `.agents/skills/` | `~/.gemini/config/skills/` |
+| OpenClaw | `<workspace>/skills/` | `~/.openclaw/skills/` |
 
 ## Quick Start
 
 The session below is human reference. Agents use `scripts/agent-crash.sh` on
-offline regular files and follow the safety contract in `SKILL.md`.
+offline regular files and follow the safety contract in [SKILL.md](skills/linux-kernel-crash-debug/SKILL.md).
 
 ```bash
 # Start crash session
@@ -46,30 +75,12 @@ crash> struct <type>    # Inspect data structures
 crash> kmem <addr>      # Memory analysis
 ```
 
-## Structure
+## Skill source
 
-```
-linux-kernel-crash-debug/
-├── SKILL.md                    # Main skill file (English)
-├── SKILL_CN.md                 # Chinese version of skill
-├── README.md                   # English documentation
-├── README_CN.md                # Chinese documentation
-├── CONTRIBUTING.md             # Contribution guide
-├── LICENSE                     # MIT License
-├── CLAUDE.md                   # Repository assistant guidance
-├── scripts/                    # Utility scripts
-│   └── agent-crash.sh          # Agent-safe crash wrapper
-├── references/                 # Detailed documentation
-│   ├── advanced-commands.md    # In-depth command usage
-│   ├── agentic-heuristics.md   # Agent debugging heuristics
-│   ├── evidence-first-workflow.md # Evidence gates, routing, verification, report template
-│   ├── case-studies.md         # Real-world debugging examples
-│   ├── debug-tools-guide.md    # KASAN, Kprobes, Kmemleak guide
-│   └── vmcore-format.md        # vmcore file format details
-└── .github/                    # CI & Issue templates
-    ├── ISSUE_TEMPLATE/
-    └── workflows/release.yml
-```
+The [skill directory](skills/linux-kernel-crash-debug/) contains `SKILL.md`,
+`SKILL_CN.md`, `scripts/`, and `references/`. Both release archives are built
+from this directory. The packaged entry points include OpenClaw's Linux and
+`crash` requirements.
 
 ## Usage
 

@@ -9,8 +9,8 @@
 # this file, those archives contained 27 files of repo metadata that
 # were useless to skill consumers (.github/, .agents/, README, LICENSE,
 # CHANGELOG, CLAUDE.md, CONTRIBUTING.md, .gitignore). This file ensures
-# the GitHub Release download matches the curated `linux-kernel-crash-
-# debug.skill` artifact produced by release.yml.
+# the automatic source download contains only the portable skill directory.
+# The custom release archives add OpenClaw metadata to both entry points.
 #
 # Why these paths are NOT in the skill (but ARE in the repo)
 # ----------------------------------------------------------

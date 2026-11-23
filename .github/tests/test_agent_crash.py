@@ -6,7 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/agent-crash.sh'
+SKILL = Path(__file__).resolve().parents[2] / 'skills/linux-kernel-crash-debug'
+SCRIPT = SKILL / 'scripts/agent-crash.sh'
 
 
 @unittest.skipIf(os.geteuid() == 0, 'wrapper intentionally refuses root')

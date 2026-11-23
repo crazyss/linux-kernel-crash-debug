@@ -8,10 +8,10 @@ Interactive commands (like a plain `crash` session REPL) will cause the Agent's 
 **Mandate:** Always use the provided `scripts/agent-crash.sh` wrapper script instead of calling `crash` directly.
 ```bash
 # General Syntax
-./scripts/agent-crash.sh -k /path/to/vmlinux -c /path/to/vmcore <macro_or_command>
+bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore <macro_or_command>
 
 # Example: bounded offline memory read
-./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456789 128
+bash "$SKILL_DIR/scripts/agent-crash.sh" -k vmlinux -c vmcore read-memory ffff880123456789 128
 ```
 
 Before interpreting output, follow `evidence-first-workflow.md`: record dump
@@ -71,9 +71,9 @@ When inspecting a corrupted pointer or structure:
 
 ## 6. Fallback Strategy
 If high-level macros leave an evidence gap, use only the wrapper's restricted primitives:
-- `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory <hex-address> <count>` (1..256 words).
-- `./scripts/agent-crash.sh -k vmlinux -c vmcore backtrace <numeric-pid>`.
-- `./scripts/agent-crash.sh -k vmlinux -c vmcore disassemble <kernel-symbol>`.
+- `bash "$SKILL_DIR/scripts/agent-crash.sh" -k vmlinux -c vmcore read-memory <hex-address> <count>` (1..256 words).
+- `bash "$SKILL_DIR/scripts/agent-crash.sh" -k vmlinux -c vmcore backtrace <numeric-pid>`.
+- `bash "$SKILL_DIR/scripts/agent-crash.sh" -k vmlinux -c vmcore disassemble <kernel-symbol>`.
 
 The unrestricted `run` operation is removed. Do not bypass this boundary with direct crash/GDB input, shell escapes, command files, or extensions. For an unsupported operation such as structure-list traversal, document the missing evidence and hand the exact offline query to an authorized human. Both files must be readable regular files; use an unprivileged account without local/home `.gdbinit`. Keep dumps and output protected. Timeout/truncation are resource limits, not an OS sandbox.
 

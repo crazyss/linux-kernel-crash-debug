@@ -1,15 +1,9 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.5.2
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, KMSAN, DMA API debugging, fail-nth, conditional trace capture, RCU stalls, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
+compatibility: Linux analysis environment with Bash, GNU coreutils, and crash. Use matching vmlinux and vmcore files.
 metadata:
-  openclaw:
-    requires:
-      bins:
-        - crash
-    os:
-      - linux
-    homepage: https://github.com/crazyss/linux-kernel-crash-debug
+  version: "1.5.3"
 ---
 
 # Linux Kernel Crash Debugging
@@ -18,31 +12,10 @@ This skill guides you through analyzing Linux kernel crash dumps using the crash
 
 ## Installation
 
-Install only when the user requests installation. These commands place skill files in the user workspace; they do not authorize services, startup hooks, or background jobs.
-
-### Claude Code
-
-Extract the verified release archive with all 13 runtime files; the scripts
-and references are required alongside `SKILL.md`.
-
-```bash
-mkdir -p ~/.claude/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
-```
-
-### OpenClaw
-```bash
-# Method 1: Install via ClawHub
-clawhub install linux-kernel-crash-debug
-
-# Method 2: Manual installation
-mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-```
-
-Use an empty destination for a new installation; handle an existing installation
-as an explicit upgrade. Copying only the manifest leaves its helpers missing.
-[Claude Code skill locations](https://code.claude.com/docs/en/skills).
+Install the complete skill only when requested. Use the [project installation
+instructions](https://github.com/crazyss/linux-kernel-crash-debug#installation)
+for the selected agent. Installation places files in the selected skill
+location. Services, startup hooks, and background jobs require separate authorization.
 
 ## Quick Start
 
@@ -128,13 +101,17 @@ and SysRq actions as live-host mutations.
 
 ## 🤖 Agent Execution Directives
 If you are an AI/Agent using this skill, **do not invoke `crash` interactively** as it will block your subshell.
-1. Use the bundled wrapper `./scripts/agent-crash.sh` for offline regular-file dumps under an unprivileged account. It enforces a narrow command allowlist and truncates displayed output:
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - Runs `sys`, a high-signal log index, panic/all-CPU backtraces, and module inventory.
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - Top 15 memory checks.
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - Pulls UN task stacks.
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - Matching disassembly and stack-frame data.
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - Pattern match memory poisons.
-2. **Restricted primitives**: Use `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`, `backtrace <pid>`, or `disassemble <symbol>` when macros are insufficient. `run` is removed. Both input paths are mandatory; live `/proc`, `/sys`, `/dev` inputs, root execution, and local/home `.gdbinit` files are rejected. Startup `.crashrc` files are disabled. No arbitrary crash/GDB commands, shell escapes, pipelines, redirection, command files, or extensions are exposed by this wrapper. Memory reads are limited to 1..256 words.
+Set `SKILL_DIR` to the directory containing the loaded `SKILL.md` and resolve
+bundled files relative to it. The agent's working directory may be elsewhere.
+Pass absolute paths to the offline `vmlinux` and `vmcore` files.
+
+1. Use the bundled wrapper `scripts/agent-crash.sh` for offline regular-file dumps under an unprivileged account. It enforces a narrow command allowlist and truncates displayed output:
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore triage` - Runs `sys`, a high-signal log index, panic/all-CPU backtraces, and module inventory.
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore flow-oom` - Top 15 memory checks.
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore flow-deadlock` - Pulls UN task stacks.
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore dis-regs <func> <pid>` - Matching disassembly and stack-frame data.
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore check-poison <addr>` - Pattern match memory poisons.
+2. **Restricted primitives**: Use `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore read-memory ffff880123456780 64`, `backtrace <pid>`, or `disassemble <symbol>` when macros are insufficient. `run` is removed. Both input paths are mandatory; live `/proc`, `/sys`, `/dev` inputs, root execution, and local/home `.gdbinit` files are rejected. Startup `.crashrc` files are disabled. No arbitrary crash/GDB commands, shell escapes, pipelines, redirection, command files, or extensions are exposed by this wrapper. Memory reads are limited to 1..256 words.
    Keep dumps and collected output access-controlled. Use a trusted installed `crash` executable in an isolated analysis environment; the wrapper is not an OS sandbox or a defense against parser vulnerabilities in malformed dumps/symbol files. If a needed query is unsupported, report the evidence gap and hand a precise offline query to an authorized human rather than bypassing the wrapper.
 3. Check `references/agentic-heuristics.md` for extended expert methodologies.
 4. Follow `references/evidence-first-workflow.md`: report symbol/dump quality,

@@ -1,15 +1,9 @@
 ---
 name: linux-kernel-crash-debug
-version: 1.5.2
 description: 使用证据优先的 vmcore 分析、crash 工具和内存/并发调试工具定位 Linux 内核崩溃。当用户提到 kernel crash、kernel panic、vmcore、内核转储、oops、pstore/ramoops、soft/hard lockup、hung task、OOM、回归二分、mutex owner、ARM64 锁指针反推、KASAN、KFENCE、KCSAN、KMSAN、DMA API 调试、fail-nth、条件轨迹捕获、RCU stall、Lockdep、drgn、Kprobes、Kmemleak、内存损坏、越界、UAF、数据竞争、死锁或内存泄漏时，使用此 skill。
+compatibility: 分析环境须为 Linux，并提供 Bash、GNU coreutils 和 crash。使用匹配的 vmlinux 和 vmcore 文件。
 metadata:
-  openclaw:
-    requires:
-      bins:
-        - crash
-    os:
-      - linux
-    homepage: https://github.com/crazyss/linux-kernel-crash-debug
+  version: "1.5.3"
 ---
 
 # Linux Kernel Crash Debugging
@@ -18,30 +12,7 @@ metadata:
 
 ## 安装
 
-### Claude Code
-
-从已核验的 release 归档解压全部 13 个运行时文件；脚本与参考文件须和
-`SKILL.md` 一起安装。
-
-```bash
-mkdir -p ~/.claude/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.claude/skills/linux-kernel-crash-debug
-```
-
-### OpenClaw
-
-仅在用户要求安装时执行以下步骤。这些命令仅放置技能文件，不授权启用服务、启动钩子或后台任务。
-```bash
-# 方式一：通过 ClawHub 安装
-clawhub install linux-kernel-crash-debug
-
-# 方式二：手动安装
-mkdir -p ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-unzip linux-kernel-crash-debug.skill -d ~/.openclaw/workspace/skills/linux-kernel-crash-debug
-```
-
-新安装使用空目录；已有安装按明确的升级任务处理。只复制入口文件会缺少其
-引用的脚本和参考资料。[Claude Code 技能位置](https://code.claude.com/docs/en/skills)。
+仅在用户要求安装时操作。按[项目安装说明](https://github.com/crazyss/linux-kernel-crash-debug/blob/main/README_CN.md#安装)为所用 Agent 安装完整技能。安装只放置技能文件。启用服务、启动钩子或后台任务需要另行授权。
 
 ## 快速开始
 
@@ -120,13 +91,15 @@ crash vmlinux
 
 ## 🤖 Agent Execution Directives (Agent 专用执行戒律)
 如果您是使用本技能的 AI/Agent，**绝对不要尝试开启交互式的 `crash` 会话**（会导致沙盒阻塞和上下文溢出）。
-1. 使用项目内自带的封套工具 `./scripts/agent-crash.sh`，仅用非 root 账号分析离线普通文件。工具强制执行受限命令白名单，并截断显示输出：
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore triage` - 输出 `sys`、高信号日志索引、panic/全 CPU 栈和模块清单。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore dis-regs <func> <pid>` - 组合查看反汇编与栈帧数据；寄存器值仍须由现场证据确认。
-   - `./scripts/agent-crash.sh -k vmlinux -c vmcore check-poison <addr>` - 查找可能的 poison 数据；匹配结果不是 UAF 诊断。
-2. **受限底层操作**：宏不足时可用 `./scripts/agent-crash.sh -k vmlinux -c vmcore read-memory ffff880123456780 64`、`backtrace <pid>` 或 `disassemble <symbol>`。已移除 `run`。必须同时指定两个输入文件；工具拒绝实时 `/proc`、`/sys`、`/dev` 输入、root 执行以及当前目录/用户目录的 `.gdbinit`，并禁用启动 `.crashrc`。不开放任意 crash/GDB 命令、shell 转义、管道、重定向、命令文件或扩展加载。内存读取限定为 1..256 个字。
+将 `SKILL_DIR` 设为所加载的 `SKILL.md` 所在目录，并从该目录定位随附文件。Agent 当前工作目录可能不同。传入离线 `vmlinux` 和 `vmcore` 的绝对路径。
+
+1. 使用项目内自带的封套工具 `scripts/agent-crash.sh`，仅用非 root 账号分析离线普通文件。工具强制执行受限命令白名单，并截断显示输出：
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore triage` - 输出 `sys`、高信号日志索引、panic/全 CPU 栈和模块清单。
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore flow-oom` - 自动聚合提取内存 OOM Top 占用。
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore flow-deadlock` - 自动清洗空闲 CPU，仅抓取 UN 睡眠任务堆栈。
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore dis-regs <func> <pid>` - 组合查看反汇编与栈帧数据；寄存器值仍须由现场证据确认。
+   - `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore check-poison <addr>` - 查找可能的 poison 数据；匹配结果不是 UAF 诊断。
+2. **受限底层操作**：宏不足时可用 `bash "$SKILL_DIR/scripts/agent-crash.sh" -k /path/to/vmlinux -c /path/to/vmcore read-memory ffff880123456780 64`、`backtrace <pid>` 或 `disassemble <symbol>`。已移除 `run`。必须同时指定两个输入文件；工具拒绝实时 `/proc`、`/sys`、`/dev` 输入、root 执行以及当前目录/用户目录的 `.gdbinit`，并禁用启动 `.crashrc`。不开放任意 crash/GDB 命令、shell 转义、管道、重定向、命令文件或扩展加载。内存读取限定为 1..256 个字。
    对 vmcore 和采集输出实施访问控制。在隔离分析环境中使用可信已安装的 `crash`；封套不是操作系统沙盒，也不能防御畸形转储/符号文件触发的解析器漏洞。不支持的查询应报告证据缺口，将明确的离线查询交给有授权的人，不得绕过封套。
 3. 如果您需要更高的专家视角，请查阅 `references/agentic-heuristics.md`（高阶内核黑客视角策略）。
 4. 遵循 `references/evidence-first-workflow.md`：报告符号/转储质量，定位最早

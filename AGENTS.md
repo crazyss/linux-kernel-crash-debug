@@ -24,7 +24,8 @@ release cycle. Treat it as an operational runbook, not as runtime skill content.
 ## Repository and Artifact Invariants
 
 The runtime skill is whitelist-only. As of v1.4.4 it contains exactly these 13
-files:
+files. The portable source lives in `skills/linux-kernel-crash-debug/` so
+`npx skills` copies just the skill folder.
 
 ```text
 SKILL.md
@@ -52,7 +53,10 @@ Repository-only files such as `AGENTS.md`, `CLAUDE.md`, `.github/`, `.agents/`,
 `export-ignore`. Keep `.gitattributes` and the forbidden-path expression in
 `.github/workflows/release.yml` synchronized.
 
-The two skill manifests must remain aligned:
+The two skill manifests must remain aligned. The portable source uses
+string-valued `metadata.version`. `.github/package-skill.py` renders the two
+OpenClaw-compatible release archives and adds the registry metadata to both
+packaged manifests:
 
 - `SKILL.md` and `SKILL_CN.md` use the same semantic version.
 - Both declare `metadata.openclaw.os: [linux]`.
@@ -122,9 +126,10 @@ Useful primary references:
 
    ```bash
    git diff --check
-   bash -n scripts/agent-crash.sh
+   skill_source=skills/linux-kernel-crash-debug
+   bash -n "$skill_source/scripts/agent-crash.sh"
    python3 .github/tests/test_agent_crash.py
-   rg -n 'echo +c +> */proc/sysrq-trigger' SKILL.md SKILL_CN.md references scripts
+   rg -n 'echo +c +> */proc/sysrq-trigger' "$skill_source"
    ```
 
    Parse both YAML frontmatters, confirm the versions match the intended tag,
@@ -138,14 +143,8 @@ Useful primary references:
    ```bash
    publish_root="$(mktemp -d)"
    publish_dir="$publish_root/linux-kernel-crash-debug"
-   mkdir -p "$publish_dir/references" "$publish_dir/scripts"
-   cp SKILL.md SKILL_CN.md "$publish_dir/"
-   for ref in advanced-commands agentic-heuristics arm64-crash-params \
-     arm64-lock-analysis case-studies debug-tools-guide evidence-first-workflow \
-     kdump-setup-guide sources vmcore-format; do
-     cp "references/$ref.md" "$publish_dir/references/"
-   done
-   cp scripts/agent-crash.sh "$publish_dir/scripts/"
+   python3 .github/package-skill.py "$publish_root"
+   unzip -q "$publish_root/linux-kernel-crash-debug.skill" -d "$publish_dir"
    npx --yes clawhub@0.23.3 skill publish "$publish_dir" \
      --slug linux-kernel-crash-debug \
      --name linux-kernel-crash-debug \
@@ -160,6 +159,11 @@ Useful primary references:
    The dry-run should report the expected version, latest predecessor, file
    count, and fingerprint. Supply GitHub provenance only after the commit exists;
    `--source-repo` and `--source-commit` must be provided together.
+
+For an explicitly requested skills.sh publication, append `[skills.sh]` to
+the commit message. The main-branch workflow performs one install of the public
+GitHub commit with normal CLI telemetry enabled. Vercel uses public installs
+to discover skills. Check the public listing separately from the install result.
 
 ## GitHub Release Procedure
 
@@ -211,7 +215,7 @@ npx --yes clawhub@0.23.3 skill publish "$publish_dir" \
   --source-repo crazyss/linux-kernel-crash-debug \
   --source-commit "$full_commit_sha" \
   --source-ref "vX.Y.Z" \
-  --source-path . \
+  --source-path skills/linux-kernel-crash-debug \
   --json
 ```
 
