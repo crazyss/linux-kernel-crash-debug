@@ -37,8 +37,8 @@ jobs:
 
       - name: Verify Skills CLI Installation
         env:
-          # Only an explicit catalog publication should report this test install.
-          DISABLE_TELEMETRY: ${{ !contains(github.event.head_commit.message, '[skills.sh]') && '1' || '' }}
+          # Report the install once on main when a commit requests catalog publication.
+          DISABLE_TELEMETRY: ${{ (github.ref != 'refs/heads/main' || !contains(github.event.head_commit.message, '[skills.sh]')) && '1' || '' }}
         run: |
           set -euo pipefail
           skill_name=linux-kernel-crash-debug

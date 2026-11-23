@@ -46,7 +46,7 @@ Bash, GNU coreutils, and access to the offline dump and matching `vmlinux`.
 ### Manual installation
 
 For OpenClaw, download `linux-kernel-crash-debug.skill` from the project's
-release page. In the download directory, replace `v1.5.2` with the exact tag
+release page. In the download directory, replace `v1.5.4` with the exact tag
 you selected. Use `gh` and `sha256sum` to check the file against the SHA-256
 digest recorded by GitHub for that release asset.
 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases)
@@ -54,7 +54,7 @@ digest recorded by GitHub for that release asset.
 ```bash
 (
   set -euo pipefail
-  tag=v1.5.2
+  tag=v1.5.4
   asset=linux-kernel-crash-debug.skill
   digest=$(gh api "repos/crazyss/linux-kernel-crash-debug/releases/tags/$tag" \
     --jq '.assets[] | select(.name == "linux-kernel-crash-debug.skill") | .digest // empty')

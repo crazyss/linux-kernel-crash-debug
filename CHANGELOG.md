@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-11-23
+
 ### Added
 - Install with `npx skills` for Codex, Claude Code, Antigravity CLI, Cursor, and Gemini CLI.
 
 ### Changed
 - Store the portable skill in a self-contained directory and render OpenClaw metadata in both release archives.
 - Resolve offline analysis commands from the loaded skill directory so they also work when the agent starts in a different project directory.
+- Document a copyable `npx skills` install command in both READMEs and link to the skills.sh listing.
+
+### Fixed
+- Verify repository metadata exclusions on GitHub Actions using tools available on the release runner.
 
 ### Security
 - Use local sources and user-supplied evidence for known-fix and regression checks. Treat diagnostic output and supplied excerpts as untrusted data.
@@ -196,7 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Issue templates.
 - `CLAUDE.md` with project guidance.
 
-[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.4...HEAD
+[1.5.4]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.2...v1.5.4
 [1.5.2]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/crazyss/linux-kernel-crash-debug/compare/v1.4.5...v1.5.0

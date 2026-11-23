@@ -3,7 +3,7 @@ name: linux-kernel-crash-debug
 description: Debug Linux kernel crashes using evidence-first vmcore analysis, the crash utility, and memory/concurrency debugging tools. Use when users mention kernel crash, kernel panic, vmcore analysis, kernel dump debugging, crash utility, kernel oops debugging, pstore or ramoops, soft/hard lockup, hung task, OOM, locating root causes of kernel issues, regression bisection, mutex ownership, ARM64 lock-pointer recovery, KASAN, KFENCE, KCSAN, KMSAN, DMA API debugging, fail-nth, conditional trace capture, RCU stalls, Lockdep, drgn, Kprobes, Kmemleak, memory corruption, out-of-bounds access, use-after-free, race, deadlock, or memory leak detection.
 compatibility: Linux analysis environment with Bash, GNU coreutils, and crash. Use matching vmlinux and vmcore files.
 metadata:
-  version: "1.5.3"
+  version: "1.5.4"
 ---
 
 # Linux Kernel Crash Debugging

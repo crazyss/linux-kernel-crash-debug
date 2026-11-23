@@ -39,12 +39,12 @@ npx skills@1.9.0 add crazyss/linux-kernel-crash-debug --skill linux-kernel-crash
 
 ### 手动安装
 
-OpenClaw 用户可从项目发布页下载 `linux-kernel-crash-debug.skill`。在下载目录中执行以下命令，把 `v1.5.2` 换成所选的发布标签。命令用 `gh` 查询 GitHub 为该发布资产记录的 SHA-256，再用 `sha256sum` 校验本地文件。 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases)
+OpenClaw 用户可从项目发布页下载 `linux-kernel-crash-debug.skill`。在下载目录中执行以下命令，把 `v1.5.4` 换成所选的发布标签。命令用 `gh` 查询 GitHub 为该发布资产记录的 SHA-256，再用 `sha256sum` 校验本地文件。 [GitHub Releases](https://github.com/crazyss/linux-kernel-crash-debug/releases)
 
 ```bash
 (
   set -euo pipefail
-  tag=v1.5.2
+  tag=v1.5.4
   asset=linux-kernel-crash-debug.skill
   digest=$(gh api "repos/crazyss/linux-kernel-crash-debug/releases/tags/$tag" \
     --jq '.assets[] | select(.name == "linux-kernel-crash-debug.skill") | .digest // empty')
