@@ -73,12 +73,12 @@ jobs:
 
           # Keep this forbidden-path expression aligned with .gitattributes.
           git archive --format=zip --prefix=source/ -o "$package_root/source.zip" HEAD
+          unzip -Z1 "$package_root/source.zip" > "$package_root/source-files.txt"
           forbidden='\.gitignore$|\.gitattributes$|\.github/|\.agents/|\.firecrawl/|^[^/]*/LICENSE$|^[^/]*/CONTRIBUTING\.md$|^[^/]*/CHANGELOG\.md$|^[^/]*/CLAUDE\.md$|^[^/]*/AGENTS\.md$|^[^/]*/README\.md$|^[^/]*/README_CN\.md$'
-          if unzip -Z1 "$package_root/source.zip" | rg "$forbidden"; then
-            exit 1
-          fi
+          diff -u "$package_root/source-files.txt" \
+            <(grep -Ev "$forbidden" "$package_root/source-files.txt")
           diff -u <(git ls-files 'skills/linux-kernel-crash-debug/**' | sort) \
-            <(unzip -Z1 "$package_root/source.zip" | sed -e 's,^source/,,' -e '/\/$/d' -e '/^$/d' | sort)
+            <(sed -e 's,^source/,,' -e '/\/$/d' -e '/^$/d' "$package_root/source-files.txt" | sort)
 
       - uses: actions/upload-artifact@v4
         if: startsWith(github.ref, 'refs/tags/v')
