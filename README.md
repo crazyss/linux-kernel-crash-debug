@@ -27,20 +27,21 @@ If the skill helps you, [star it on GitHub](https://github.com/crazyss/linux-ker
 clawhub install linux-kernel-crash-debug
 ```
 
-### Codex, Claude Code, and Antigravity CLI via `npx skills`
+### `npx skills` for Codex, Claude Code, and other agents
 
-Run this from the project where you want to use the skill.
+Run this from the project where you want to use the skill. Select your agent
+if prompted. [View on skills.sh](https://www.skills.sh/crazyss/linux-kernel-crash-debug/linux-kernel-crash-debug)
 
 ```bash
-npx skills@1.9.0 add crazyss/linux-kernel-crash-debug \
-  --skill linux-kernel-crash-debug -a codex -a claude-code -a antigravity-cli
+npx skills@1.9.0 add crazyss/linux-kernel-crash-debug --skill linux-kernel-crash-debug
 ```
 
-Keep the `-a` flags for the agents you use. Use `-a cursor` for Cursor or
-`-a gemini-cli` for Gemini CLI. Add `-g` for a user-level installation. The pinned
-installer requires Node.js 22.20.0 or later. Runtime analysis needs a Linux
-shell with `crash`, Bash, GNU coreutils, and access to the offline dump and
-matching `vmlinux`. [Skills CLI reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
+To select an agent explicitly, append `-a codex`, `-a claude-code`,
+`-a antigravity-cli`, `-a cursor`, or `-a gemini-cli`. Repeat `-a` for multiple
+agents. Add `-g` for a user-level installation. The pinned installer requires
+Node.js 22.20.0 or later. Runtime analysis needs a Linux shell with `crash`,
+Bash, GNU coreutils, and access to the offline dump and matching `vmlinux`.
+[Skills CLI reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
 
 ### Manual installation
 

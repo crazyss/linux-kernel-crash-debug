@@ -27,16 +27,15 @@
 clawhub install linux-kernel-crash-debug
 ```
 
-### Codex、Claude Code 和 Antigravity CLI（通过 `npx skills`）
+### `npx skills`（Codex、Claude Code 等）
 
-在要使用技能的项目目录执行以下命令。
+在要使用技能的项目目录执行以下命令。出现提示时，选择你使用的 Agent。 [查看 skills.sh 页面](https://www.skills.sh/crazyss/linux-kernel-crash-debug/linux-kernel-crash-debug)
 
 ```bash
-npx skills@1.9.0 add crazyss/linux-kernel-crash-debug \
-  --skill linux-kernel-crash-debug -a codex -a claude-code -a antigravity-cli
+npx skills@1.9.0 add crazyss/linux-kernel-crash-debug --skill linux-kernel-crash-debug
 ```
 
-按需保留 `-a` 选项。Cursor 用 `-a cursor`，Gemini CLI 用 `-a gemini-cli`。加 `-g` 可安装到用户级目录。上述安装器需要 Node.js 22.20.0 或更新版本。实际分析在 Linux 环境执行，需要 `crash`、Bash、GNU coreutils，以及可读取的离线转储和与之匹配的 `vmlinux`。[Skills CLI 文档](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
+也可以追加 `-a codex`、`-a claude-code`、`-a antigravity-cli`、`-a cursor` 或 `-a gemini-cli` 来指定 Agent。安装到多个 Agent 时可重复使用 `-a`，加 `-g` 可安装到用户级目录。上述安装器需要 Node.js 22.20.0 或更新版本。实际分析在 Linux 环境执行，需要 `crash`、Bash、GNU coreutils，以及可读取的离线转储和与之匹配的 `vmlinux`。 [Skills CLI 文档](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
 
 ### 手动安装
 
